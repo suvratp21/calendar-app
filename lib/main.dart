@@ -67,7 +67,6 @@ class _AuthScreenState extends State<AuthScreen> {
     await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
       'name': _nameController.text,
     });
-    // Show confirmation message when name is saved
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text("Name successfully saved")));
   }
