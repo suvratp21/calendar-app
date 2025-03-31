@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1061392172618",
+    "project_id": "calendar-455419",
+    "storage_bucket": "calendar-455419.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1061392172618:android:9729bb87ad5c7e91fa08b3",
+        "android_client_info": {
+          "package_name": "com.example.calendar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1061392172618-jbadmdhijvna8kdka8t0qjgrui32975e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.calendar",
+            "certificate_hash": "5fcc4ff84e1b7aaa7a72ae82e62271c83387131a"
+          }
+        },
+        {
+          "client_id": "1061392172618-ihljhvagp6h48nt263346m9mhudhekgq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmCq37KFSKMnX5AI_2DO7ctMFlaCXcuWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1061392172618-ihljhvagp6h48nt263346m9mhudhekgq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
