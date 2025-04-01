@@ -39,6 +39,13 @@ class _AuthScreenState extends State<AuthScreen> {
   User? user;
   String? _accessToken;
   List<Appointment> _appointments = [];
+  final CalendarController _calendarController = CalendarController();
+
+  @override
+  void initState() {
+    super.initState();
+    _calendarController.displayDate = DateTime.now();
+  }
 
   Future<void> _signInWithGoogle() async {
     final GoogleSignInAccount? googleUser = await GoogleSignIn(
@@ -131,36 +138,70 @@ class _AuthScreenState extends State<AuthScreen> {
             )
           : Padding(
               padding: const EdgeInsets.all(16.0),
-              child: SfCalendar(
-                view: CalendarView.schedule,
-                dataSource: MeetingDataSource(_appointments),
-                appointmentBuilder:
-                    (BuildContext context, CalendarAppointmentDetails details) {
-                  final Appointment appointment = details.appointments.first;
-                  return Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.blueAccent,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      appointment.subject,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_left),
+                        onPressed: () {
+                          setState(() {
+                            _calendarController.displayDate =
+                                _calendarController.displayDate!
+                                    .subtract(const Duration(days: 1));
+                          });
+                        },
+                      ),
+                      Text(
+                        "${_calendarController.displayDate!.day}/${_calendarController.displayDate!.month}/${_calendarController.displayDate!.year}",
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_right),
+                        onPressed: () {
+                          setState(() {
+                            _calendarController.displayDate =
+                                _calendarController.displayDate!
+                                    .add(const Duration(days: 1));
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: SfCalendar(
+                      view: CalendarView.day,
+                      controller: _calendarController,
+                      dataSource: MeetingDataSource(_appointments),
+                      appointmentBuilder:
+                          (BuildContext context, CalendarAppointmentDetails details) {
+                        final Appointment appointment = details.appointments.first;
+                        return Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            appointment.subject,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      },
+                      timeSlotViewSettings: const TimeSlotViewSettings(
+                        timeTextStyle: TextStyle(
+                          color: Colors.black,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                  );
-                },
-                scheduleViewSettings: const ScheduleViewSettings(
-                  monthHeaderSettings: MonthHeaderSettings(
-                    backgroundColor: Colors.deepPurple,
-                    monthTextStyle: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
                   ),
-                ),
+                ],
               ),
             ),
       ),
