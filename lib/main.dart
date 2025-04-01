@@ -117,14 +117,37 @@ class _AuthScreenState extends State<AuthScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
-              if (value == 'setting') {
-                print('Setting clicked');
+              switch (value) {
+                case 'refresh':
+                  print('Refresh clicked');
+                  break;
+                case 'settings':
+                  print('Settings clicked');
+                  break;
+                case 'add_event':
+                  print('Add Event clicked');
+                  break;
+                case 'logout':
+                  print('Logout clicked');
+                  break;
               }
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
-                value: 'setting',
-                child: Text('Setting'),
+                value: 'refresh',
+                child: Text('Refresh'),
+              ),
+              const PopupMenuItem(
+                value: 'settings',
+                child: Text('Settings'),
+              ),
+              const PopupMenuItem(
+                value: 'add_event',
+                child: Text('Add Event'),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Text('Logout'),
               ),
             ],
           )
