@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:syncfusion_flutter_calendar/calendar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,26 +37,28 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   User? user;
-  final TextEditingController _nameController = TextEditingController();
+  String? _accessToken;
+  List<Appointment> _appointments = [];
 
   Future<void> _signInWithGoogle() async {
-    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+    final GoogleSignInAccount? googleUser = await GoogleSignIn(
+      scopes: ['email', 'https://www.googleapis.com/auth/calendar.readonly']
+    ).signIn();
     if (googleUser == null) return;
-    final GoogleSignInAuthentication googleAuth =
-        await googleUser.authentication;
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
     try {
-      UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       setState(() {
         user = userCredential.user;
+        _accessToken = googleAuth.accessToken;
       });
       print("Google sign in successful for user: ${user!.email}");
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Google sign in successful")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Google sign in successful")));
+      await _fetchCalendarEvents();
     } catch (e) {
       print("Google sign in failed with error: ${e.toString()}");
       ScaffoldMessenger.of(context).showSnackBar(
@@ -62,13 +66,39 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Future<void> _submitName() async {
-    if (_nameController.text.isEmpty || user == null) return;
-    await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
-      'name': _nameController.text,
-    });
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text("Name successfully saved")));
+  Future<void> _fetchCalendarEvents() async {
+    if (_accessToken == null) return;
+    final url = Uri.parse('https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&orderBy=startTime&singleEvents=true');
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $_accessToken'});
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final events = data['items'] as List<dynamic>;
+      List<Appointment> appointments = [];
+      for (var event in events) {
+        String? startStr = event['start']['dateTime'] ?? event['start']['date'];
+        String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
+        if (startStr != null) {
+          DateTime startTime = DateTime.parse(startStr);
+          DateTime endTime;
+          if (endStr != null) {
+            endTime = DateTime.parse(endStr);
+          } else {
+            endTime = startTime.add(const Duration(hours: 1));
+          }
+          appointments.add(Appointment(
+            startTime: startTime,
+            endTime: endTime,
+            subject: event['summary'] ?? 'No Title',
+            color: Colors.blue,
+          ));
+        }
+      }
+      setState(() {
+        _appointments = appointments;
+      });
+    } else {
+      print('Failed to fetch calendar events: ${response.body}');
+    }
   }
 
   @override
@@ -76,41 +106,70 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Calendar'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'setting') {
+                print('Setting clicked');
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'setting',
+                child: Text('Setting'),
+              ),
+            ],
+          )
+        ],
       ),
       body: Center(
         child: user == null
-            ? ElevatedButton(
-                onPressed: _signInWithGoogle,
-                child: const Text('Sign in with Google'),
-              )
-            : Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Signed in as: ${user!.email ?? user!.uid}',
+          ? ElevatedButton(
+              onPressed: _signInWithGoogle,
+              child: const Text('Sign in with Google'),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SfCalendar(
+                view: CalendarView.schedule,
+                dataSource: MeetingDataSource(_appointments),
+                appointmentBuilder:
+                    (BuildContext context, CalendarAppointmentDetails details) {
+                  final Appointment appointment = details.appointments.first;
+                  return Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      appointment.subject,
                       style: const TextStyle(
-                        fontSize: 16,
+                        color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Enter your name',
-                      ),
+                  );
+                },
+                scheduleViewSettings: const ScheduleViewSettings(
+                  monthHeaderSettings: MonthHeaderSettings(
+                    backgroundColor: Colors.deepPurple,
+                    monthTextStyle: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
                     ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _submitName,
-                      child: const Text('Submit Name'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
+            ),
       ),
     );
+  }
+}
+
+class MeetingDataSource extends CalendarDataSource {
+  MeetingDataSource(List<Appointment> source) {
+    appointments = source;
   }
 }
