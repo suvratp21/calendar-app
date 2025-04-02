@@ -76,6 +76,35 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Calendar'),
+        actions: [
+          PopupMenuButton(
+            onSelected: (value) {
+              if (value == 'add_name') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddNamePage(
+                      user: user,
+                      initialName: _nameController.text,
+                    ),
+                  ),
+                ).then((result) {
+                  if (result != null) {
+                    setState(() {
+                      _nameController.text = result;
+                    });
+                  }
+                });
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'add_name',
+                child: Text('Add Name'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Center(
         child: user == null
@@ -88,28 +117,83 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'Signed in as: ${user!.email ?? user!.uid}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Enter your name',
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _submitName,
-                      child: const Text('Submit Name'),
-                    ),
+                    // Removed "Signed in as" text from home screen
                   ],
                 ),
               ),
+      ),
+    );
+  }
+}
+
+class AddNamePage extends StatefulWidget {
+  final User? user;
+  final String initialName;
+  const AddNamePage({super.key, required this.user, required this.initialName});
+
+  @override
+  State<AddNamePage> createState() => _AddNamePageState();
+}
+
+class _AddNamePageState extends State<AddNamePage> {
+  late TextEditingController _pageNameController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageNameController = TextEditingController(text: widget.initialName);
+    if (widget.user == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Please sign in first")));
+        Navigator.of(context).pop();
+      });
+    }
+  }
+
+  Future<void> _saveName() async {
+    if (_pageNameController.text.isEmpty || widget.user == null) return;
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.user!.uid)
+        .set({'name': _pageNameController.text});
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text("Name successfully saved")));
+    Navigator.of(context).pop(_pageNameController.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Add Name")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _pageNameController,
+              decoration: const InputDecoration(labelText: "Enter your name"),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _saveName,
+                    child: const Text("Save"),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text("Cancel"),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
