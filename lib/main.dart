@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +37,7 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   User? user;
   final TextEditingController _nameController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
 
   Future<void> _signInWithGoogle() async {
     final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -69,6 +71,23 @@ class _AuthScreenState extends State<AuthScreen> {
     });
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text("Name successfully saved")));
+  }
+
+  Future<List<Meeting>> _fetchCalendarEvents() async {
+    await Future.delayed(const Duration(seconds: 1)); // simulate network delay
+    DateTime startForDay = DateTime(
+        _selectedDate.year, _selectedDate.month, _selectedDate.day, 9, 0);
+    DateTime endForDay = DateTime(
+        _selectedDate.year, _selectedDate.month, _selectedDate.day, 10, 0);
+    return [
+      Meeting(
+        'Team Meeting',
+        startForDay,
+        endForDay,
+        Colors.blue,
+        false,
+      ),
+    ];
   }
 
   @override
@@ -114,16 +133,78 @@ class _AuthScreenState extends State<AuthScreen> {
               )
             : Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Removed "Signed in as" text from home screen
-                  ],
+                child: GestureDetector(
+                  onHorizontalDragEnd: (details) {
+                    if (details.velocity.pixelsPerSecond.dx > 0) {
+                      setState(() {
+                        _selectedDate =
+                            _selectedDate.subtract(const Duration(days: 1));
+                      });
+                    } else if (details.velocity.pixelsPerSecond.dx < 0) {
+                      setState(() {
+                        _selectedDate =
+                            _selectedDate.add(const Duration(days: 1));
+                      });
+                    }
+                  },
+                  child: FutureBuilder<List<Meeting>>(
+                    future: _fetchCalendarEvents(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      if (snapshot.hasError) {
+                        return Text('Error: ${snapshot.error}');
+                      }
+                      final meetings = snapshot.data ?? [];
+                      return Column(
+                        children: [
+                          Text(
+                            'Events for ${_selectedDate.toLocal().toString().split(" ")[0]}',
+                            style: const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: SfCalendar(
+                              view: CalendarView.day,
+                              dataSource: MeetingDataSource(meetings),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
       ),
     );
   }
+}
+
+class Meeting {
+  Meeting(this.eventName, this.from, this.to, this.background, this.isAllDay);
+  final String eventName;
+  final DateTime from;
+  final DateTime to;
+  final Color background;
+  final bool isAllDay;
+}
+
+class MeetingDataSource extends CalendarDataSource {
+  MeetingDataSource(List<Meeting> source) {
+    appointments = source;
+  }
+  @override
+  DateTime getStartTime(int index) => appointments![index].from;
+  @override
+  DateTime getEndTime(int index) => appointments![index].to;
+  @override
+  String getSubject(int index) => appointments![index].eventName;
+  @override
+  Color getColor(int index) => appointments![index].background;
+  @override
+  bool isAllDay(int index) => appointments![index].isAllDay;
 }
 
 class AddNamePage extends StatefulWidget {
