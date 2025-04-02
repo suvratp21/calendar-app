@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
@@ -49,24 +50,28 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _accessToken;
 
   Future<void> _signInWithGoogle() async {
-    final GoogleSignInAccount? googleUser = await GoogleSignIn(
-      scopes: ['email', 'https://www.googleapis.com/auth/calendar.readonly']
-    ).signIn();
+    final GoogleSignInAccount? googleUser = await GoogleSignIn(scopes: [
+      'email',
+      'https://www.googleapis.com/auth/calendar.readonly'
+    ]).signIn();
     if (googleUser == null) return;
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+    final GoogleSignInAuthentication googleAuth =
+        await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
     try {
-      UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
       setState(() {
         user = userCredential.user;
         _accessToken = googleAuth.accessToken;
       });
       print("Google sign in successful for user: ${user!.email}");
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Google sign in successful")));
-      await _fetchCalendarEvents();
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Google sign in successful")));
+      await _fetchCalendarEvents(_selectedDate); // Pass _selectedDate here
     } catch (e) {
       print("Google sign in failed with error: ${e.toString()}");
       ScaffoldMessenger.of(context).showSnackBar(
