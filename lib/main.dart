@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'dart:async'; // Add this import for TimeoutException
+import 'add_name_page.dart';
+import 'add_event_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,15 +40,13 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   User? user;
-  String? _accessToken;
-  List<Appointment> _appointments = [];
-  final CalendarController _calendarController = CalendarController();
+  final TextEditingController _nameController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
 
-  @override
-  void initState() {
-    super.initState();
-    _calendarController.displayDate = DateTime.now();
-  }
+  // Correctly initialize _eventCache as an empty map
+  final Map<DateTime, List<Appointment>> _eventCache = {};
+
+  String? _accessToken;
 
   Future<void> _signInWithGoogle() async {
     final GoogleSignInAccount? googleUser = await GoogleSignIn(
@@ -73,39 +74,103 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Future<void> _fetchCalendarEvents() async {
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    await GoogleSignIn().signOut();
+    setState(() {
+      user = null;
+      _accessToken = null;
+    });
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text("Logged out successfully")));
+  }
+
+  Future<void> _submitName() async {
+    if (_nameController.text.isEmpty || user == null) return;
+    await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
+      'name': _nameController.text,
+    });
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text("Name successfully saved")));
+  }
+
+  Future<void> _fetchCalendarEvents(DateTime date) async {
     if (_accessToken == null) return;
-    final url = Uri.parse('https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&orderBy=startTime&singleEvents=true');
-    final response = await http.get(url, headers: {'Authorization': 'Bearer $_accessToken'});
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final events = data['items'] as List<dynamic>;
-      List<Appointment> appointments = [];
-      for (var event in events) {
-        String? startStr = event['start']['dateTime'] ?? event['start']['date'];
-        String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
-        if (startStr != null) {
-          DateTime startTime = DateTime.parse(startStr);
-          DateTime endTime;
-          if (endStr != null) {
-            endTime = DateTime.parse(endStr);
-          } else {
-            endTime = startTime.add(const Duration(hours: 1));
-          }
-          appointments.add(Appointment(
-            startTime: startTime,
-            endTime: endTime,
-            subject: event['summary'] ?? 'No Title',
-            color: Colors.blue,
-          ));
-        }
-      }
-      setState(() {
-        _appointments = appointments;
-      });
-    } else {
-      print('Failed to fetch calendar events: ${response.body}');
+
+    // Calculate the range of dates to fetch (5 days before and after)
+    DateTime startDate = date.subtract(const Duration(days: 5));
+    DateTime endDate = date.add(const Duration(days: 5));
+
+    // Check if the range is already cached
+    if (_eventCache.containsKey(startDate) &&
+        _eventCache.containsKey(endDate)) {
+      print("Using cached events for range: $startDate to $endDate");
+      return;
     }
+
+    final url = Uri.parse(
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&orderBy=startTime&singleEvents=true&timeMin=${startDate.toUtc().toIso8601String()}&timeMax=${endDate.toUtc().toIso8601String()}');
+    try {
+      final response = await http.get(url, headers: {
+        'Authorization': 'Bearer $_accessToken'
+      }).timeout(const Duration(seconds: 10)); // Add a timeout of 10 seconds
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final events = data['items'] as List<dynamic>;
+        List<Appointment> appointments = [];
+        for (var event in events) {
+          try {
+            String? startStr =
+                event['start']['dateTime'] ?? event['start']['date'];
+            String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
+            if (startStr != null) {
+              DateTime startTime = DateTime.parse(startStr);
+              DateTime endTime = endStr != null
+                  ? DateTime.parse(endStr)
+                  : startTime.add(const Duration(hours: 1));
+              appointments.add(Appointment(
+                startTime: startTime,
+                endTime: endTime,
+                subject: event['summary'] ?? 'No Title',
+                color: Colors.blue,
+              ));
+              print(
+                  'Event: ${event['summary']}, Start: $startTime, End: $endTime');
+            }
+          } catch (e) {
+            print('Error parsing event: $e');
+          }
+        }
+
+        // Cache the events for the range
+        setState(() {
+          for (int i = 0; i <= 10; i++) {
+            DateTime currentDate = startDate.add(Duration(days: i));
+            _eventCache[currentDate] = appointments
+                .where((event) =>
+                    event.startTime.isAfter(currentDate) &&
+                    event.startTime
+                        .isBefore(currentDate.add(const Duration(days: 1))))
+                .toList();
+          }
+        });
+      } else {
+        print('Failed to fetch calendar events: ${response.body}');
+      }
+    } on TimeoutException catch (_) {
+      print('Request to fetch calendar events timed out.');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Request timed out. Please try again.")));
+    } catch (e) {
+      print('Error fetching calendar events: $e');
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error fetching events: $e")));
+    }
+  }
+
+  List<Appointment> _getEventsForSelectedDate() {
+    return _eventCache[_selectedDate] ?? [];
   }
 
   @override
@@ -117,123 +182,151 @@ class _AuthScreenState extends State<AuthScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
-              switch (value) {
-                case 'refresh':
-                  print('Refresh clicked');
-                  break;
-                case 'settings':
-                  print('Settings clicked');
-                  break;
-                case 'add_event':
-                  print('Add Event clicked');
-                  break;
-                case 'logout':
-                  print('Logout clicked');
-                  break;
+              if (value == 'add_name') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddNamePage(
+                      user: user,
+                      initialName: _nameController.text,
+                    ),
+                  ),
+                ).then((result) {
+                  if (result != null) {
+                    setState(() {
+                      _nameController.text = result;
+                    });
+                  }
+                });
+              } else if (value == 'refresh') {
+                _fetchCalendarEvents(_selectedDate);
+              } else if (value == 'add_event') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddEventPage(),
+                  ),
+                );
+              } else if (value == 'logout') {
+                _logout();
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'add_name',
+                child: Text('Add Name'),
+              ),
+              PopupMenuItem(
                 value: 'refresh',
                 child: Text('Refresh'),
               ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings'),
-              ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'add_event',
                 child: Text('Add Event'),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'logout',
                 child: Text('Logout'),
               ),
             ],
-          )
+          ),
         ],
       ),
       body: Center(
         child: user == null
-          ? ElevatedButton(
-              onPressed: _signInWithGoogle,
-              child: const Text('Sign in with Google'),
-            )
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            ? ElevatedButton(
+                onPressed: _signInWithGoogle,
+                child: const Text('Sign in with Google'),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: GestureDetector(
+                  onHorizontalDragEnd: (details) {
+                    setState(() {
+                      if (details.velocity.pixelsPerSecond.dx > 0) {
+                        _selectedDate =
+                            _selectedDate.subtract(const Duration(days: 1));
+                      } else if (details.velocity.pixelsPerSecond.dx < 0) {
+                        _selectedDate =
+                            _selectedDate.add(const Duration(days: 1));
+                      }
+                      if (!_eventCache.containsKey(_selectedDate)) {
+                        _fetchCalendarEvents(_selectedDate);
+                      }
+                    });
+                  },
+                  child: Column(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_left),
-                        onPressed: () {
-                          setState(() {
-                            _calendarController.displayDate =
-                                _calendarController.displayDate!
-                                    .subtract(const Duration(days: 1));
-                          });
-                        },
-                      ),
                       Text(
-                        "${_calendarController.displayDate!.day}/${_calendarController.displayDate!.month}/${_calendarController.displayDate!.year}",
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ' ${_selectedDate.toLocal().toString().split(" ")[0]}',
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.arrow_right),
-                        onPressed: () {
-                          setState(() {
-                            _calendarController.displayDate =
-                                _calendarController.displayDate!
-                                    .add(const Duration(days: 1));
-                          });
-                        },
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: SfCalendar(
+                          view: CalendarView.day,
+                          dataSource: AppointmentDataSource(
+                              _getEventsForSelectedDate()),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: SfCalendar(
-                      view: CalendarView.day,
-                      controller: _calendarController,
-                      dataSource: MeetingDataSource(_appointments),
-                      appointmentBuilder:
-                          (BuildContext context, CalendarAppointmentDetails details) {
-                        final Appointment appointment = details.appointments.first;
-                        return Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.blueAccent,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            appointment.subject,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      },
-                      timeSlotViewSettings: const TimeSlotViewSettings(
-                        timeTextStyle: TextStyle(
-                          color: Colors.black,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
       ),
     );
   }
 }
 
+class Meeting {
+  Meeting(this.eventName, this.from, this.to, this.background, this.isAllDay);
+  final String eventName;
+  final DateTime from;
+  final DateTime to;
+  final Color background;
+  final bool isAllDay;
+}
+
 class MeetingDataSource extends CalendarDataSource {
-  MeetingDataSource(List<Appointment> source) {
+  MeetingDataSource(List<Meeting> source) {
     appointments = source;
   }
+  @override
+  DateTime getStartTime(int index) => appointments![index].from;
+  @override
+  DateTime getEndTime(int index) => appointments![index].to;
+  @override
+  String getSubject(int index) => appointments![index].eventName;
+  @override
+  Color getColor(int index) => appointments![index].background;
+  @override
+  bool isAllDay(int index) => appointments![index].isAllDay;
+}
+
+class Appointment {
+  Appointment({
+    required this.startTime,
+    required this.endTime,
+    required this.subject,
+    required this.color,
+  });
+  final DateTime startTime;
+  final DateTime endTime;
+  final String subject;
+  final Color color;
+}
+
+class AppointmentDataSource extends CalendarDataSource {
+  AppointmentDataSource(List<Appointment> source) {
+    appointments = source;
+  }
+  @override
+  DateTime getStartTime(int index) => appointments![index].startTime;
+  @override
+  DateTime getEndTime(int index) => appointments![index].endTime;
+  @override
+  String getSubject(int index) => appointments![index].subject;
+  @override
+  Color getColor(int index) => appointments![index].color;
 }
