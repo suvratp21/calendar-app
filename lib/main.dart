@@ -64,6 +64,16 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    await GoogleSignIn().signOut();
+    setState(() {
+      user = null;
+    });
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text("Logged out successfully")));
+  }
+
   Future<void> _submitName() async {
     if (_nameController.text.isEmpty || user == null) return;
     await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
@@ -114,12 +124,37 @@ class _AuthScreenState extends State<AuthScreen> {
                     });
                   }
                 });
+              } else if (value == 'refresh') {
+                setState(() {
+                  // triggers rebuild and data refresh
+                });
+              } else if (value == 'add_event') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddEventPage(),
+                  ),
+                );
+              } else if (value == 'logout') {
+                _logout();
               }
             },
             itemBuilder: (context) => const [
               PopupMenuItem(
                 value: 'add_name',
                 child: Text('Add Name'),
+              ),
+              PopupMenuItem(
+                value: 'refresh',
+                child: Text('Refresh'),
+              ),
+              PopupMenuItem(
+                value: 'add_event',
+                child: Text('Add Event'),
+              ),
+              PopupMenuItem(
+                value: 'logout',
+                child: Text('Logout'),
               ),
             ],
           ),
@@ -160,7 +195,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       return Column(
                         children: [
                           Text(
-                            'Events for ${_selectedDate.toLocal().toString().split(" ")[0]}',
+                            ' ${_selectedDate.toLocal().toString().split(" ")[0]}',
                             style: const TextStyle(
                                 fontSize: 20, fontWeight: FontWeight.bold),
                           ),
@@ -261,6 +296,62 @@ class _AddNamePageState extends State<AddNamePage> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _saveName,
+                    child: const Text("Save"),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text("Cancel"),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AddEventPage extends StatefulWidget {
+  const AddEventPage({super.key});
+
+  @override
+  State<AddEventPage> createState() => _AddEventPageState();
+}
+
+class _AddEventPageState extends State<AddEventPage> {
+  final TextEditingController _eventController = TextEditingController();
+
+  Future<void> _saveEvent() async {
+    if (_eventController.text.isEmpty) return;
+    // TODO: Implement saving event to your data source
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Event successfully saved")),
+    );
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Add Event")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _eventController,
+              decoration: const InputDecoration(labelText: "Event Title"),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _saveEvent,
                     child: const Text("Save"),
                   ),
                 ),
