@@ -6,6 +6,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:async'; // Add this import for TimeoutException
+import 'add_name_page.dart';
+import 'add_event_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,7 +43,10 @@ class _AuthScreenState extends State<AuthScreen> {
   User? user;
   final TextEditingController _nameController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
-  List<Appointment> _appointments = [];
+
+  // Correctly initialize _eventCache as an empty map
+  final Map<DateTime, List<Appointment>> _eventCache = {};
+
   String? _accessToken;
 
   Future<void> _signInWithGoogle() async {
@@ -89,45 +95,83 @@ class _AuthScreenState extends State<AuthScreen> {
         .showSnackBar(const SnackBar(content: Text("Name successfully saved")));
   }
 
-  Future<void> _fetchCalendarEvents() async {
+  Future<void> _fetchCalendarEvents(DateTime date) async {
     if (_accessToken == null) return;
-    final url = Uri.parse(
-        'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&orderBy=startTime&singleEvents=true');
-    final response =
-        await http.get(url, headers: {'Authorization': 'Bearer $_accessToken'});
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final events = data['items'] as List<dynamic>;
-      List<Appointment> appointments = [];
-      for (var event in events) {
-        try {
-          String? startStr =
-              event['start']['dateTime'] ?? event['start']['date'];
-          String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
-          if (startStr != null) {
-            DateTime startTime = DateTime.parse(startStr);
-            DateTime endTime = endStr != null
-                ? DateTime.parse(endStr)
-                : startTime.add(const Duration(hours: 1));
-            appointments.add(Appointment(
-              startTime: startTime,
-              endTime: endTime,
-              subject: event['summary'] ?? 'No Title',
-              color: Colors.blue,
-            ));
-            print(
-                'Event: ${event['summary']}, Start: $startTime, End: $endTime');
-          }
-        } catch (e) {
-          print('Error parsing event: $e');
-        }
-      }
-      setState(() {
-        _appointments = appointments;
-      });
-    } else {
-      print('Failed to fetch calendar events: ${response.body}');
+
+    // Calculate the range of dates to fetch (5 days before and after)
+    DateTime startDate = date.subtract(const Duration(days: 5));
+    DateTime endDate = date.add(const Duration(days: 5));
+
+    // Check if the range is already cached
+    if (_eventCache.containsKey(startDate) &&
+        _eventCache.containsKey(endDate)) {
+      print("Using cached events for range: $startDate to $endDate");
+      return;
     }
+
+    final url = Uri.parse(
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&orderBy=startTime&singleEvents=true&timeMin=${startDate.toUtc().toIso8601String()}&timeMax=${endDate.toUtc().toIso8601String()}');
+    try {
+      final response = await http.get(url, headers: {
+        'Authorization': 'Bearer $_accessToken'
+      }).timeout(const Duration(seconds: 10)); // Add a timeout of 10 seconds
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final events = data['items'] as List<dynamic>;
+        List<Appointment> appointments = [];
+        for (var event in events) {
+          try {
+            String? startStr =
+                event['start']['dateTime'] ?? event['start']['date'];
+            String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
+            if (startStr != null) {
+              DateTime startTime = DateTime.parse(startStr);
+              DateTime endTime = endStr != null
+                  ? DateTime.parse(endStr)
+                  : startTime.add(const Duration(hours: 1));
+              appointments.add(Appointment(
+                startTime: startTime,
+                endTime: endTime,
+                subject: event['summary'] ?? 'No Title',
+                color: Colors.blue,
+              ));
+              print(
+                  'Event: ${event['summary']}, Start: $startTime, End: $endTime');
+            }
+          } catch (e) {
+            print('Error parsing event: $e');
+          }
+        }
+
+        // Cache the events for the range
+        setState(() {
+          for (int i = 0; i <= 10; i++) {
+            DateTime currentDate = startDate.add(Duration(days: i));
+            _eventCache[currentDate] = appointments
+                .where((event) =>
+                    event.startTime.isAfter(currentDate) &&
+                    event.startTime
+                        .isBefore(currentDate.add(const Duration(days: 1))))
+                .toList();
+          }
+        });
+      } else {
+        print('Failed to fetch calendar events: ${response.body}');
+      }
+    } on TimeoutException catch (_) {
+      print('Request to fetch calendar events timed out.');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Request timed out. Please try again.")));
+    } catch (e) {
+      print('Error fetching calendar events: $e');
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error fetching events: $e")));
+    }
+  }
+
+  List<Appointment> _getEventsForSelectedDate() {
+    return _eventCache[_selectedDate] ?? [];
   }
 
   @override
@@ -156,7 +200,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   }
                 });
               } else if (value == 'refresh') {
-                _fetchCalendarEvents();
+                _fetchCalendarEvents(_selectedDate);
               } else if (value == 'add_event') {
                 Navigator.push(
                   context,
@@ -197,16 +241,38 @@ class _AuthScreenState extends State<AuthScreen> {
               )
             : Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: SfCalendar(
-                        view: CalendarView.day,
-                        dataSource: AppointmentDataSource(_appointments),
+                child: GestureDetector(
+                  onHorizontalDragEnd: (details) {
+                    setState(() {
+                      if (details.velocity.pixelsPerSecond.dx > 0) {
+                        _selectedDate =
+                            _selectedDate.subtract(const Duration(days: 1));
+                      } else if (details.velocity.pixelsPerSecond.dx < 0) {
+                        _selectedDate =
+                            _selectedDate.add(const Duration(days: 1));
+                      }
+                      if (!_eventCache.containsKey(_selectedDate)) {
+                        _fetchCalendarEvents(_selectedDate);
+                      }
+                    });
+                  },
+                  child: Column(
+                    children: [
+                      Text(
+                        ' ${_selectedDate.toLocal().toString().split(" ")[0]}',
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: SfCalendar(
+                          view: CalendarView.day,
+                          dataSource: AppointmentDataSource(
+                              _getEventsForSelectedDate()),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
       ),
@@ -264,133 +330,4 @@ class AppointmentDataSource extends CalendarDataSource {
   String getSubject(int index) => appointments![index].subject;
   @override
   Color getColor(int index) => appointments![index].color;
-}
-
-class AddNamePage extends StatefulWidget {
-  final User? user;
-  final String initialName;
-  const AddNamePage({super.key, required this.user, required this.initialName});
-
-  @override
-  State<AddNamePage> createState() => _AddNamePageState();
-}
-
-class _AddNamePageState extends State<AddNamePage> {
-  late TextEditingController _pageNameController;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageNameController = TextEditingController(text: widget.initialName);
-    if (widget.user == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Please sign in first")));
-        Navigator.of(context).pop();
-      });
-    }
-  }
-
-  Future<void> _saveName() async {
-    if (_pageNameController.text.isEmpty || widget.user == null) return;
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(widget.user!.uid)
-        .set({'name': _pageNameController.text});
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text("Name successfully saved")));
-    Navigator.of(context).pop(_pageNameController.text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Add Name")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _pageNameController,
-              decoration: const InputDecoration(labelText: "Enter your name"),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _saveName,
-                    child: const Text("Save"),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text("Cancel"),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class AddEventPage extends StatefulWidget {
-  const AddEventPage({super.key});
-
-  @override
-  State<AddEventPage> createState() => _AddEventPageState();
-}
-
-class _AddEventPageState extends State<AddEventPage> {
-  final TextEditingController _eventController = TextEditingController();
-
-  Future<void> _saveEvent() async {
-    if (_eventController.text.isEmpty) return;
-    // TODO: Implement saving event to your data source
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Event successfully saved")),
-    );
-    Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Add Event")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _eventController,
-              decoration: const InputDecoration(labelText: "Event Title"),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _saveEvent,
-                    child: const Text("Save"),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text("Cancel"),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
