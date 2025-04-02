@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +40,8 @@ class _AuthScreenState extends State<AuthScreen> {
   User? user;
   final TextEditingController _nameController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
+  List<Appointment> _appointments = [];
+  String? _accessToken;
 
   Future<void> _signInWithGoogle() async {
     final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -53,6 +57,7 @@ class _AuthScreenState extends State<AuthScreen> {
           await FirebaseAuth.instance.signInWithCredential(credential);
       setState(() {
         user = userCredential.user;
+        _accessToken = googleAuth.accessToken;
       });
       print("Google sign in successful for user: ${user!.email}");
       ScaffoldMessenger.of(context).showSnackBar(
@@ -69,6 +74,7 @@ class _AuthScreenState extends State<AuthScreen> {
     await GoogleSignIn().signOut();
     setState(() {
       user = null;
+      _accessToken = null;
     });
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text("Logged out successfully")));
@@ -83,21 +89,45 @@ class _AuthScreenState extends State<AuthScreen> {
         .showSnackBar(const SnackBar(content: Text("Name successfully saved")));
   }
 
-  Future<List<Meeting>> _fetchCalendarEvents() async {
-    await Future.delayed(const Duration(seconds: 1)); // simulate network delay
-    DateTime startForDay = DateTime(
-        _selectedDate.year, _selectedDate.month, _selectedDate.day, 9, 0);
-    DateTime endForDay = DateTime(
-        _selectedDate.year, _selectedDate.month, _selectedDate.day, 10, 0);
-    return [
-      Meeting(
-        'Team Meeting',
-        startForDay,
-        endForDay,
-        Colors.blue,
-        false,
-      ),
-    ];
+  Future<void> _fetchCalendarEvents() async {
+    if (_accessToken == null) return;
+    final url = Uri.parse(
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&orderBy=startTime&singleEvents=true');
+    final response =
+        await http.get(url, headers: {'Authorization': 'Bearer $_accessToken'});
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final events = data['items'] as List<dynamic>;
+      List<Appointment> appointments = [];
+      for (var event in events) {
+        try {
+          String? startStr =
+              event['start']['dateTime'] ?? event['start']['date'];
+          String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
+          if (startStr != null) {
+            DateTime startTime = DateTime.parse(startStr);
+            DateTime endTime = endStr != null
+                ? DateTime.parse(endStr)
+                : startTime.add(const Duration(hours: 1));
+            appointments.add(Appointment(
+              startTime: startTime,
+              endTime: endTime,
+              subject: event['summary'] ?? 'No Title',
+              color: Colors.blue,
+            ));
+            print(
+                'Event: ${event['summary']}, Start: $startTime, End: $endTime');
+          }
+        } catch (e) {
+          print('Error parsing event: $e');
+        }
+      }
+      setState(() {
+        _appointments = appointments;
+      });
+    } else {
+      print('Failed to fetch calendar events: ${response.body}');
+    }
   }
 
   @override
@@ -106,7 +136,8 @@ class _AuthScreenState extends State<AuthScreen> {
       appBar: AppBar(
         title: const Text('Calendar'),
         actions: [
-          PopupMenuButton(
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               if (value == 'add_name') {
                 Navigator.push(
@@ -125,9 +156,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   }
                 });
               } else if (value == 'refresh') {
-                setState(() {
-                  // triggers rebuild and data refresh
-                });
+                _fetchCalendarEvents();
               } else if (value == 'add_event') {
                 Navigator.push(
                   context,
@@ -168,48 +197,16 @@ class _AuthScreenState extends State<AuthScreen> {
               )
             : Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: GestureDetector(
-                  onHorizontalDragEnd: (details) {
-                    if (details.velocity.pixelsPerSecond.dx > 0) {
-                      setState(() {
-                        _selectedDate =
-                            _selectedDate.subtract(const Duration(days: 1));
-                      });
-                    } else if (details.velocity.pixelsPerSecond.dx < 0) {
-                      setState(() {
-                        _selectedDate =
-                            _selectedDate.add(const Duration(days: 1));
-                      });
-                    }
-                  },
-                  child: FutureBuilder<List<Meeting>>(
-                    future: _fetchCalendarEvents(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const CircularProgressIndicator();
-                      }
-                      if (snapshot.hasError) {
-                        return Text('Error: ${snapshot.error}');
-                      }
-                      final meetings = snapshot.data ?? [];
-                      return Column(
-                        children: [
-                          Text(
-                            ' ${_selectedDate.toLocal().toString().split(" ")[0]}',
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 10),
-                          Expanded(
-                            child: SfCalendar(
-                              view: CalendarView.day,
-                              dataSource: MeetingDataSource(meetings),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: SfCalendar(
+                        view: CalendarView.day,
+                        dataSource: AppointmentDataSource(_appointments),
+                      ),
+                    ),
+                  ],
                 ),
               ),
       ),
@@ -240,6 +237,33 @@ class MeetingDataSource extends CalendarDataSource {
   Color getColor(int index) => appointments![index].background;
   @override
   bool isAllDay(int index) => appointments![index].isAllDay;
+}
+
+class Appointment {
+  Appointment({
+    required this.startTime,
+    required this.endTime,
+    required this.subject,
+    required this.color,
+  });
+  final DateTime startTime;
+  final DateTime endTime;
+  final String subject;
+  final Color color;
+}
+
+class AppointmentDataSource extends CalendarDataSource {
+  AppointmentDataSource(List<Appointment> source) {
+    appointments = source;
+  }
+  @override
+  DateTime getStartTime(int index) => appointments![index].startTime;
+  @override
+  DateTime getEndTime(int index) => appointments![index].endTime;
+  @override
+  String getSubject(int index) => appointments![index].subject;
+  @override
+  Color getColor(int index) => appointments![index].color;
 }
 
 class AddNamePage extends StatefulWidget {
