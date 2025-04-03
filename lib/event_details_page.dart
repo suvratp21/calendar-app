@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'edit_event_page.dart'; // Import the edit event page
 import 'main.dart'; // Import the Appointment class
 
 class EventDetailsPage extends StatefulWidget {
@@ -48,8 +49,25 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   }
 
   Future<void> _editEvent() async {
-    // Navigate to an edit event page (to be implemented)
-    // Pass the event details and eventId for editing
+    final updatedEvent = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditEventPage(
+          appointment: widget.appointment,
+          eventId: widget.eventId,
+          members: members,
+        ),
+      ),
+    );
+
+    if (updatedEvent != null) {
+      setState(() {
+        widget.appointment.subject = updatedEvent['subject'];
+        widget.appointment.startTime = updatedEvent['startTime'];
+        widget.appointment.endTime = updatedEvent['endTime'];
+        members = updatedEvent['members'];
+      });
+    }
   }
 
   @override

@@ -357,9 +357,10 @@ class Appointment {
     required this.color,
     required this.eventId,
   });
-  final DateTime startTime;
-  final DateTime endTime;
-  final String subject;
+
+  DateTime startTime; // Removed 'final' to make it mutable
+  DateTime endTime; // Removed 'final' to make it mutable
+  String subject; // Removed 'final' to make it mutable
   final Color color;
   final String eventId;
 }
