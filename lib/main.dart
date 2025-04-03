@@ -52,6 +52,31 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _accessToken;
   AppointmentDataSource? _calendarDataSource;
 
+  @override
+  void initState() {
+    super.initState();
+    _attemptSilentSignIn(); // Added to restore credentials silently
+  }
+
+  Future<void> _attemptSilentSignIn() async {
+    // New method to restore credentials
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      final googleUser = await GoogleSignIn(scopes: [
+        'email',
+        'https://www.googleapis.com/auth/calendar.readonly'
+      ]).signInSilently();
+      if (googleUser != null) {
+        final googleAuth = await googleUser.authentication;
+        setState(() {
+          user = currentUser;
+          _accessToken = googleAuth.accessToken;
+        });
+        await _fetchCalendarEvents(_selectedDate);
+      }
+    }
+  }
+
   Future<void> _signInWithGoogle() async {
     // Always ask for contact permission until it's either granted or permanently denied
     PermissionStatus contactStatus;
@@ -116,31 +141,23 @@ class _AuthScreenState extends State<AuthScreen> {
         .showSnackBar(const SnackBar(content: Text("Name successfully saved")));
   }
 
+  // Helper to normalize a DateTime to its date only.
+  DateTime _normalizeDate(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+
   Future<void> _fetchCalendarEvents(DateTime date) async {
     if (_accessToken == null) return;
 
     // Calculate the range of dates to fetch (5 days before and after)
-    DateTime startDate = date.subtract(const Duration(days: 5));
-    DateTime endDate = date.add(const Duration(days: 5));
+    DateTime startDate = _normalizeDate(date.subtract(const Duration(days: 5)));
+    DateTime endDate = _normalizeDate(date.add(const Duration(days: 5)));
 
-    // Check if the range is already cached
-    if (_eventCache.containsKey(startDate) &&
-        _eventCache.containsKey(endDate)) {
-      print("Using cached events for range: $startDate to $endDate");
-      for (int i = 0; i <= 10; i++) {
-        DateTime currentDate = startDate.add(Duration(days: i));
-        List<Appointment>? cachedEvents = _eventCache[currentDate];
-        if (cachedEvents != null) {
-          print("Cached events for $currentDate:");
-          for (var event in cachedEvents) {
-            print(
-                "Event: ${event.subject}, Start: ${event.startTime}, End: ${event.endTime}");
-          }
-        }
-      }
+    // Check if the range is already cached using normalized keys
+    if (_eventCache.containsKey(_normalizeDate(date))) {
+      print("Using cached events for date: ${_normalizeDate(date)}");
       setState(() {
         _calendarDataSource =
-            AppointmentDataSource(_eventCache[_selectedDate] ?? []);
+            AppointmentDataSource(_eventCache[_normalizeDate(date)] ?? []);
       });
       return;
     }
@@ -150,7 +167,7 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       final response = await http.get(url, headers: {
         'Authorization': 'Bearer $_accessToken'
-      }).timeout(const Duration(seconds: 10)); // Add a timeout of 10 seconds
+      }).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -162,7 +179,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 event['start']['dateTime'] ?? event['start']['date'];
             String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
             if (startStr != null) {
-              // Convert event times to the local time zone
               DateTime startTime = DateTime.parse(startStr).toLocal();
               DateTime endTime = endStr != null
                   ? DateTime.parse(endStr).toLocal()
@@ -182,19 +198,21 @@ class _AuthScreenState extends State<AuthScreen> {
           }
         }
 
-        // Cache the events for the range
+        // Cache the events for each day in the range using normalized dates
         setState(() {
-          for (int i = 0; i <= 10; i++) {
-            DateTime currentDate = startDate.add(Duration(days: i));
+          for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+            DateTime currentDate =
+                _normalizeDate(startDate.add(Duration(days: i)));
+            DateTime dayStart = currentDate;
+            DateTime dayEnd = currentDate.add(const Duration(days: 1));
             _eventCache[currentDate] = appointments
                 .where((event) =>
-                    event.startTime.isAfter(currentDate) &&
-                    event.startTime
-                        .isBefore(currentDate.add(const Duration(days: 1))))
+                    event.startTime.isBefore(dayEnd) &&
+                    event.endTime.isAfter(dayStart))
                 .toList();
           }
           _calendarDataSource =
-              AppointmentDataSource(_eventCache[_selectedDate] ?? []);
+              AppointmentDataSource(_eventCache[_normalizeDate(date)] ?? []);
         });
       } else {
         print('Failed to fetch calendar events: ${response.body}');
@@ -210,8 +228,41 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> _updateGoogleCalendarEvent(
+      Appointment updatedAppointment) async {
+    if (_accessToken == null || updatedAppointment.eventId.isEmpty) return;
+    final url = Uri.parse(
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events/${updatedAppointment.eventId}');
+    final body = json.encode({
+      'summary': updatedAppointment.subject,
+      'start': {
+        'dateTime': updatedAppointment.startTime.toUtc().toIso8601String()
+      },
+      'end': {'dateTime': updatedAppointment.endTime.toUtc().toIso8601String()},
+    });
+    try {
+      final response = await http.patch(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_accessToken',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+      if (response.statusCode == 200) {
+        print('Google event updated successfully.');
+        print('DEBUG: Updated event data: $body');
+      } else {
+        print('Failed to update Google event: ${response.body}');
+        print('DEBUG: Response status: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error updating Google event: $e');
+    }
+  }
+
   List<Appointment> _getEventsForSelectedDate() {
-    return _eventCache[_selectedDate] ?? [];
+    return _eventCache[_normalizeDate(_selectedDate)] ?? [];
   }
 
   @override
@@ -291,11 +342,12 @@ class _AuthScreenState extends State<AuthScreen> {
                         _selectedDate =
                             _selectedDate.add(const Duration(days: 1));
                       }
-                      if (!_eventCache.containsKey(_selectedDate)) {
+                      if (!_eventCache
+                          .containsKey(_normalizeDate(_selectedDate))) {
                         _fetchCalendarEvents(_selectedDate);
                       } else {
                         _calendarDataSource = AppointmentDataSource(
-                            _eventCache[_selectedDate] ?? []);
+                            _eventCache[_normalizeDate(_selectedDate)] ?? []);
                       }
                     });
                   },
@@ -325,7 +377,21 @@ class _AuthScreenState extends State<AuthScreen> {
                                         appointment.eventId, // Pass eventId
                                   ),
                                 ),
-                              );
+                              ).then((updatedAppointment) {
+                                if (updatedAppointment != null) {
+                                  // Update local appointment with new details
+                                  setState(() {
+                                    appointment.subject =
+                                        updatedAppointment.subject;
+                                    appointment.startTime =
+                                        updatedAppointment.startTime;
+                                    appointment.endTime =
+                                        updatedAppointment.endTime;
+                                  });
+                                  // Sync changes to Google Calendar API
+                                  _updateGoogleCalendarEvent(appointment);
+                                }
+                              });
                             }
                           },
                         ),

@@ -41,7 +41,9 @@ class _EditEventPageState extends State<EditEventPage> {
   }
 
   Future<void> _saveEvent() async {
-    if (_titleController.text.isEmpty || _startTime == null || _endTime == null) {
+    if (_titleController.text.isEmpty ||
+        _startTime == null ||
+        _endTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all required fields")),
       );
@@ -50,6 +52,8 @@ class _EditEventPageState extends State<EditEventPage> {
 
     final eventData = {
       'subject': _titleController.text,
+      'location': _locationController.text,
+      'description': _descriptionController.text,
       'startTime': _startTime,
       'endTime': _endTime,
       'members': _members,
@@ -77,13 +81,10 @@ class _EditEventPageState extends State<EditEventPage> {
       if (contact == null) return;
 
       final name = contact.name.first;
-      final phone = contact.phones.isNotEmpty 
-          ? contact.phones.first.number 
-          : null;
+      final phone =
+          contact.phones.isNotEmpty ? contact.phones.first.number : null;
 
-      final displayText = phone != null 
-          ? '$name (${phone})' 
-          : name;
+      final displayText = phone != null ? '$name (${phone})' : name;
 
       if (!_members.contains(displayText)) {
         setState(() => _members.add(displayText));
@@ -180,13 +181,16 @@ class _EditEventPageState extends State<EditEventPage> {
                   ),
                 ],
               ),
-              ..._members.map((member) => ListTile(
-                title: Text(member),
-                trailing: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => setState(() => _members.remove(member)),
-                ),
-              )).toList(),
+              ..._members
+                  .map((member) => ListTile(
+                        title: Text(member),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () =>
+                              setState(() => _members.remove(member)),
+                        ),
+                      ))
+                  .toList(),
             ],
           ),
         ),
