@@ -28,11 +28,12 @@ class _AddEventPageState extends State<AddEventPage> {
         foregroundColor: Colors.black,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(0),
         child: Card(
           elevation: 5,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0),
+          margin: const EdgeInsets.all(0),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.zero,
           ),
           color: Colors.white,
           child: Padding(

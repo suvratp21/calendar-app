@@ -88,11 +88,12 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(0), // Remove padding
         child: Card(
           elevation: 5,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0),
+          margin: const EdgeInsets.all(0), // Remove margin
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.zero, // Extend to edges
           ),
           color: Colors.white,
           child: Padding(

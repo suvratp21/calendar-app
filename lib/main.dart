@@ -345,94 +345,81 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   child: const Text('Sign in with Google'),
                 )
-              : Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: GestureDetector(
-                    onHorizontalDragEnd: (details) {
-                      setState(() {
-                        if (details.velocity.pixelsPerSecond.dx > 0) {
-                          _selectedDate =
-                              _selectedDate.subtract(const Duration(days: 1));
-                        } else if (details.velocity.pixelsPerSecond.dx < 0) {
-                          _selectedDate =
-                              _selectedDate.add(const Duration(days: 1));
-                        }
-                        if (!_eventCache
-                            .containsKey(_normalizeDate(_selectedDate))) {
-                          _fetchCalendarEvents(_selectedDate);
-                        } else {
-                          _calendarDataSource = AppointmentDataSource(
-                              _eventCache[_normalizeDate(_selectedDate)] ?? []);
-                        }
-                      });
-                    },
-                    child: Column(
-                      children: [
-                        Text(
-                          ' ${_selectedDate.toLocal().toString().split(" ")[0]}',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
+              : GestureDetector(
+                  onHorizontalDragEnd: (details) {
+                    setState(() {
+                      if (details.velocity.pixelsPerSecond.dx > 0) {
+                        _selectedDate =
+                            _selectedDate.subtract(const Duration(days: 1));
+                      } else if (details.velocity.pixelsPerSecond.dx < 0) {
+                        _selectedDate =
+                            _selectedDate.add(const Duration(days: 1));
+                      }
+                      if (!_eventCache
+                          .containsKey(_normalizeDate(_selectedDate))) {
+                        _fetchCalendarEvents(_selectedDate);
+                      } else {
+                        _calendarDataSource = AppointmentDataSource(
+                            _eventCache[_normalizeDate(_selectedDate)] ?? []);
+                      }
+                    });
+                  },
+                  child: Column(
+                    children: [
+                      Text(
+                        ' ${_selectedDate.toLocal().toString().split(" ")[0]}',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
                         ),
-                        const SizedBox(height: 10),
-                        Expanded(
-                          child: Card(
-                            elevation: 5,
-                            margin: const EdgeInsets.all(8.0),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15.0),
+                      ),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: SfCalendar(
+                          view: CalendarView.day,
+                          dataSource: _calendarDataSource,
+                          headerStyle: const CalendarHeaderStyle(
+                            textAlign: TextAlign.center,
+                            backgroundColor: Colors.white,
+                            textStyle: TextStyle(
+                              color: Colors.black,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
-                            child: SfCalendar(
-                              view: CalendarView.day,
-                              dataSource: _calendarDataSource,
-                              headerStyle: const CalendarHeaderStyle(
-                                textAlign: TextAlign.center,
-                                backgroundColor: Colors.white,
-                                textStyle: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                          ),
+                          todayHighlightColor: Colors.black,
+                          onTap: (CalendarTapDetails details) {
+                            if (details.appointments != null &&
+                                details.appointments!.isNotEmpty) {
+                              final Appointment appointment =
+                                  details.appointments!.first;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EventDetailsPage(
+                                    appointment: appointment,
+                                    eventId: appointment.eventId,
+                                  ),
                                 ),
-                              ),
-                              todayHighlightColor: Colors.black,
-                              onTap: (CalendarTapDetails details) {
-                                if (details.appointments != null &&
-                                    details.appointments!.isNotEmpty) {
-                                  final Appointment appointment =
-                                      details.appointments!.first;
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => EventDetailsPage(
-                                        appointment: appointment,
-                                        eventId:
-                                            appointment.eventId, // Pass eventId
-                                      ),
-                                    ),
-                                  ).then((updatedAppointment) {
-                                    if (updatedAppointment != null) {
-                                      // Update local appointment with new details
-                                      setState(() {
-                                        appointment.subject =
-                                            updatedAppointment.subject;
-                                        appointment.startTime =
-                                            updatedAppointment.startTime;
-                                        appointment.endTime =
-                                            updatedAppointment.endTime;
-                                      });
-                                      // Sync changes to Google Calendar API
-                                      _updateGoogleCalendarEvent(appointment);
-                                    }
+                              ).then((updatedAppointment) {
+                                if (updatedAppointment != null) {
+                                  setState(() {
+                                    appointment.subject =
+                                        updatedAppointment.subject;
+                                    appointment.startTime =
+                                        updatedAppointment.startTime;
+                                    appointment.endTime =
+                                        updatedAppointment.endTime;
                                   });
+                                  _updateGoogleCalendarEvent(appointment);
                                 }
-                              },
-                            ),
-                          ),
+                              });
+                            }
+                          },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
         ),
