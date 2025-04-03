@@ -88,12 +88,12 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(0), // Remove padding
+        padding: const EdgeInsets.all(0),
         child: Card(
           elevation: 5,
-          margin: const EdgeInsets.all(0), // Remove margin
+          margin: const EdgeInsets.all(0),
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero, // Extend to edges
+            borderRadius: BorderRadius.zero,
           ),
           color: Colors.white,
           child: Padding(
@@ -105,8 +105,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   Text(
                     'Title: ${widget.appointment.subject}',
                     style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
                       color: Colors.black,
                     ),
                   ),
@@ -124,19 +124,26 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   const Text(
                     'Members:',
                     style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   members.isNotEmpty
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: members
-                              .map((member) => Text(
-                                    member,
-                                    style: const TextStyle(
-                                        fontSize: 16, color: Colors.black),
+                              .map((member) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 4.0),
+                                    child: Text(
+                                      member,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black,
+                                      ),
+                                    ),
                                   ))
                               .toList(),
                         )
@@ -144,6 +151,22 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                           'No members added.',
                           style: TextStyle(fontSize: 16, color: Colors.black),
                         ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.black54, thickness: 1),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Additional Information:',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'No additional information available.',
+                    style: TextStyle(fontSize: 16, color: Colors.black),
+                  ),
                 ],
               ),
             ),

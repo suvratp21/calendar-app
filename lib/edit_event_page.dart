@@ -111,12 +111,12 @@ class _EditEventPageState extends State<EditEventPage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(0), // Remove padding
+        padding: const EdgeInsets.all(0),
         child: Card(
           elevation: 5,
-          margin: const EdgeInsets.all(0), // Remove margin
+          margin: const EdgeInsets.all(0),
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero, // Extend to edges
+            borderRadius: BorderRadius.zero,
           ),
           color: Colors.white,
           child: Padding(
@@ -153,6 +153,15 @@ class _EditEventPageState extends State<EditEventPage> {
                     maxLines: 3,
                   ),
                   const SizedBox(height: 20),
+                  const Text(
+                    'Event Timing',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
@@ -169,8 +178,11 @@ class _EditEventPageState extends State<EditEventPage> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10.0),
+                            ),
                           ),
                           child: const Text("Pick Start Time"),
                         ),
@@ -190,8 +202,11 @@ class _EditEventPageState extends State<EditEventPage> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10.0),
+                            ),
                           ),
                           child: const Text("Pick End Time"),
                         ),
@@ -203,11 +218,12 @@ class _EditEventPageState extends State<EditEventPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        "Members",
+                        " Members",
                         style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.person_add, color: Colors.black),
