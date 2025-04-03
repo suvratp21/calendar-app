@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'main.dart'; // Import the Appointment class
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EditEventPage extends StatefulWidget {
   final Appointment appointment;
@@ -46,12 +48,24 @@ class _EditEventPageState extends State<EditEventPage> {
       return;
     }
 
-    Navigator.of(context).pop({
+    final eventData = {
       'subject': _titleController.text,
       'startTime': _startTime,
       'endTime': _endTime,
       'members': _members,
-    });
+    };
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null && currentUser.email != null) {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.email)
+          .collection('events')
+          .doc(widget.eventId)
+          .set(eventData);
+    }
+
+    Navigator.of(context).pop(eventData);
   }
 
   @override
@@ -151,7 +165,41 @@ class _EditEventPageState extends State<EditEventPage> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  // Add logic to add a new member
+                  final TextEditingController _newMemberController =
+                      TextEditingController();
+                  showDialog(
+                      context: context,
+                      builder: (context) {
+                        return AlertDialog(
+                          title: const Text("Add Member"),
+                          content: TextField(
+                            controller: _newMemberController,
+                            decoration:
+                                const InputDecoration(labelText: "Member Name"),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                final newMember =
+                                    _newMemberController.text.trim();
+                                if (newMember.isNotEmpty) {
+                                  setState(() {
+                                    _members.add(newMember);
+                                  });
+                                }
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text("Add"),
+                            ),
+                          ],
+                        );
+                      });
                 },
                 child: const Text("Add Member"),
               ),
