@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'main.dart'; // Import the Appointment class
+import 'main.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class EditEventPage extends StatefulWidget {
   final Appointment appointment;
@@ -39,9 +41,7 @@ class _EditEventPageState extends State<EditEventPage> {
   }
 
   Future<void> _saveEvent() async {
-    if (_titleController.text.isEmpty ||
-        _startTime == null ||
-        _endTime == null) {
+    if (_titleController.text.isEmpty || _startTime == null || _endTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all required fields")),
       );
@@ -66,6 +66,33 @@ class _EditEventPageState extends State<EditEventPage> {
     }
 
     Navigator.of(context).pop(eventData);
+  }
+
+  Future<void> _pickContact() async {
+    final permissionStatus = await Permission.contacts.request();
+    if (!permissionStatus.isGranted) return;
+
+    try {
+      final contact = await FlutterContacts.openExternalPick();
+      if (contact == null) return;
+
+      final name = contact.name.first;
+      final phone = contact.phones.isNotEmpty 
+          ? contact.phones.first.number 
+          : null;
+
+      final displayText = phone != null 
+          ? '$name (${phone})' 
+          : name;
+
+      if (!_members.contains(displayText)) {
+        setState(() => _members.add(displayText));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
   }
 
   @override
@@ -99,8 +126,9 @@ class _EditEventPageState extends State<EditEventPage> {
               TextField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(labelText: "Description"),
+                maxLines: 3,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
@@ -113,9 +141,7 @@ class _EditEventPageState extends State<EditEventPage> {
                           lastDate: DateTime(2100),
                         );
                         if (pickedDate != null) {
-                          setState(() {
-                            _startTime = pickedDate;
-                          });
+                          setState(() => _startTime = pickedDate);
                         }
                       },
                       child: const Text("Pick Start Time"),
@@ -132,9 +158,7 @@ class _EditEventPageState extends State<EditEventPage> {
                           lastDate: DateTime(2100),
                         );
                         if (pickedDate != null) {
-                          setState(() {
-                            _endTime = pickedDate;
-                          });
+                          setState(() => _endTime = pickedDate);
                         }
                       },
                       child: const Text("Pick End Time"),
@@ -143,66 +167,26 @@ class _EditEventPageState extends State<EditEventPage> {
                 ],
               ),
               const SizedBox(height: 20),
-              const Text(
-                "Members",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Members",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.person_add),
+                    onPressed: _pickContact,
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              Column(
-                children: _members
-                    .map((member) => ListTile(
-                          title: Text(member),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () {
-                              setState(() {
-                                _members.remove(member);
-                              });
-                            },
-                          ),
-                        ))
-                    .toList(),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final TextEditingController _newMemberController =
-                      TextEditingController();
-                  showDialog(
-                      context: context,
-                      builder: (context) {
-                        return AlertDialog(
-                          title: const Text("Add Member"),
-                          content: TextField(
-                            controller: _newMemberController,
-                            decoration:
-                                const InputDecoration(labelText: "Member Name"),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text("Cancel"),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                final newMember =
-                                    _newMemberController.text.trim();
-                                if (newMember.isNotEmpty) {
-                                  setState(() {
-                                    _members.add(newMember);
-                                  });
-                                }
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text("Add"),
-                            ),
-                          ],
-                        );
-                      });
-                },
-                child: const Text("Add Member"),
-              ),
+              ..._members.map((member) => ListTile(
+                title: Text(member),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => setState(() => _members.remove(member)),
+                ),
+              )).toList(),
             ],
           ),
         ),
