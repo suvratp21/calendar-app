@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'dart:async'; // Add this import for TimeoutException
 import 'add_name_page.dart';
 import 'add_event_page.dart';
+import 'event_details_page.dart'; // Import the event details page
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +49,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final Map<DateTime, List<Appointment>> _eventCache = {};
 
   String? _accessToken;
+  AppointmentDataSource? _calendarDataSource;
 
   Future<void> _signInWithGoogle() async {
     final GoogleSignInAccount? googleUser = await GoogleSignIn(scopes: [
@@ -110,6 +112,21 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_eventCache.containsKey(startDate) &&
         _eventCache.containsKey(endDate)) {
       print("Using cached events for range: $startDate to $endDate");
+      for (int i = 0; i <= 10; i++) {
+        DateTime currentDate = startDate.add(Duration(days: i));
+        List<Appointment>? cachedEvents = _eventCache[currentDate];
+        if (cachedEvents != null) {
+          print("Cached events for $currentDate:");
+          for (var event in cachedEvents) {
+            print(
+                "Event: ${event.subject}, Start: ${event.startTime}, End: ${event.endTime}");
+          }
+        }
+      }
+      setState(() {
+        _calendarDataSource =
+            AppointmentDataSource(_eventCache[_selectedDate] ?? []);
+      });
       return;
     }
 
@@ -130,15 +147,17 @@ class _AuthScreenState extends State<AuthScreen> {
                 event['start']['dateTime'] ?? event['start']['date'];
             String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
             if (startStr != null) {
-              DateTime startTime = DateTime.parse(startStr);
+              // Convert event times to the local time zone
+              DateTime startTime = DateTime.parse(startStr).toLocal();
               DateTime endTime = endStr != null
-                  ? DateTime.parse(endStr)
+                  ? DateTime.parse(endStr).toLocal()
                   : startTime.add(const Duration(hours: 1));
               appointments.add(Appointment(
                 startTime: startTime,
                 endTime: endTime,
                 subject: event['summary'] ?? 'No Title',
                 color: Colors.blue,
+                eventId: event['id'] ?? '',
               ));
               print(
                   'Event: ${event['summary']}, Start: $startTime, End: $endTime');
@@ -159,6 +178,8 @@ class _AuthScreenState extends State<AuthScreen> {
                         .isBefore(currentDate.add(const Duration(days: 1))))
                 .toList();
           }
+          _calendarDataSource =
+              AppointmentDataSource(_eventCache[_selectedDate] ?? []);
         });
       } else {
         print('Failed to fetch calendar events: ${response.body}');
@@ -257,6 +278,9 @@ class _AuthScreenState extends State<AuthScreen> {
                       }
                       if (!_eventCache.containsKey(_selectedDate)) {
                         _fetchCalendarEvents(_selectedDate);
+                      } else {
+                        _calendarDataSource = AppointmentDataSource(
+                            _eventCache[_selectedDate] ?? []);
                       }
                     });
                   },
@@ -271,8 +295,24 @@ class _AuthScreenState extends State<AuthScreen> {
                       Expanded(
                         child: SfCalendar(
                           view: CalendarView.day,
-                          dataSource: AppointmentDataSource(
-                              _getEventsForSelectedDate()),
+                          dataSource: _calendarDataSource,
+                          onTap: (CalendarTapDetails details) {
+                            if (details.appointments != null &&
+                                details.appointments!.isNotEmpty) {
+                              final Appointment appointment =
+                                  details.appointments!.first;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EventDetailsPage(
+                                    appointment: appointment,
+                                    eventId:
+                                        appointment.eventId, // Pass eventId
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ),
                     ],
@@ -315,11 +355,13 @@ class Appointment {
     required this.endTime,
     required this.subject,
     required this.color,
+    required this.eventId,
   });
   final DateTime startTime;
   final DateTime endTime;
   final String subject;
   final Color color;
+  final String eventId;
 }
 
 class AppointmentDataSource extends CalendarDataSource {
