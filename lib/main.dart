@@ -7,6 +7,7 @@ import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:async'; // Add this import for TimeoutException
+import 'package:permission_handler/permission_handler.dart';
 import 'add_name_page.dart';
 import 'add_event_page.dart';
 import 'event_details_page.dart'; // Import the event details page
@@ -52,6 +53,20 @@ class _AuthScreenState extends State<AuthScreen> {
   AppointmentDataSource? _calendarDataSource;
 
   Future<void> _signInWithGoogle() async {
+    // Always ask for contact permission until it's either granted or permanently denied
+    PermissionStatus contactStatus;
+    do {
+      contactStatus = await Permission.contacts.request();
+      // Loop only if permission is temporarily denied.
+    } while (contactStatus.isDenied);
+
+    if (!contactStatus.isGranted) {
+      // covers permanently denied scenario
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Contact permission not granted.')));
+      return;
+    }
+
     final GoogleSignInAccount? googleUser = await GoogleSignIn(scopes: [
       'email',
       'https://www.googleapis.com/auth/calendar.readonly'
