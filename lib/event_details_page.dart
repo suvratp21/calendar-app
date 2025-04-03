@@ -78,80 +78,74 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Event Details'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: _editEvent, // Edit button
+            icon: const Icon(Icons.edit, color: Colors.black),
+            onPressed: _editEvent,
           ),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Title: ${widget.appointment.subject}',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Start Time: ${widget.appointment.startTime}',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Duration: ${duration.inHours} hours and ${duration.inMinutes % 60} minutes',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Time Zone: Not specified',
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Location: Not specified',
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Description: Not available',
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Members:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              members.isNotEmpty
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: members
-                          .map((member) => Text(
-                                member,
-                                style: const TextStyle(fontSize: 16),
-                              ))
-                          .toList(),
-                    )
-                  : const Text(
-                      'No members added.',
-                      style: TextStyle(fontSize: 16),
+        child: Card(
+          elevation: 5,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Title: ${widget.appointment.subject}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
-              const SizedBox(height: 20),
-              const Text(
-                'Google Drive Attachments:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Start Time: ${widget.appointment.startTime}',
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Duration: ${duration.inHours} hours and ${duration.inMinutes % 60} minutes',
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Members:',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
+                  ),
+                  const SizedBox(height: 10),
+                  members.isNotEmpty
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: members
+                              .map((member) => Text(
+                                    member,
+                                    style: const TextStyle(
+                                        fontSize: 16, color: Colors.black),
+                                  ))
+                              .toList(),
+                        )
+                      : const Text(
+                          'No members added.',
+                          style: TextStyle(fontSize: 16, color: Colors.black),
+                        ),
+                ],
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'No attachments available.',
-                style: TextStyle(fontSize: 16),
-              ),
-            ],
+            ),
           ),
         ),
       ),

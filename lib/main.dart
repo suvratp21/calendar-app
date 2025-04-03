@@ -270,9 +270,11 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Calendar'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black, // Ensure text/icons are visible
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(Icons.more_vert, color: Colors.black),
             onSelected: (value) {
               if (value == 'add_name') {
                 Navigator.push(
@@ -306,100 +308,134 @@ class _AuthScreenState extends State<AuthScreen> {
             itemBuilder: (context) => const [
               PopupMenuItem(
                 value: 'add_name',
-                child: Text('Add Name'),
+                child: Text('Add Name', style: TextStyle(color: Colors.black)),
               ),
               PopupMenuItem(
                 value: 'refresh',
-                child: Text('Refresh'),
+                child: Text('Refresh', style: TextStyle(color: Colors.black)),
               ),
               PopupMenuItem(
                 value: 'add_event',
-                child: Text('Add Event'),
+                child: Text('Add Event', style: TextStyle(color: Colors.black)),
               ),
               PopupMenuItem(
                 value: 'logout',
-                child: Text('Logout'),
+                child: Text('Logout', style: TextStyle(color: Colors.black)),
               ),
             ],
           ),
         ],
       ),
-      body: Center(
-        child: user == null
-            ? ElevatedButton(
-                onPressed: _signInWithGoogle,
-                child: const Text('Sign in with Google'),
-              )
-            : Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: GestureDetector(
-                  onHorizontalDragEnd: (details) {
-                    setState(() {
-                      if (details.velocity.pixelsPerSecond.dx > 0) {
-                        _selectedDate =
-                            _selectedDate.subtract(const Duration(days: 1));
-                      } else if (details.velocity.pixelsPerSecond.dx < 0) {
-                        _selectedDate =
-                            _selectedDate.add(const Duration(days: 1));
-                      }
-                      if (!_eventCache
-                          .containsKey(_normalizeDate(_selectedDate))) {
-                        _fetchCalendarEvents(_selectedDate);
-                      } else {
-                        _calendarDataSource = AppointmentDataSource(
-                            _eventCache[_normalizeDate(_selectedDate)] ?? []);
-                      }
-                    });
-                  },
-                  child: Column(
-                    children: [
-                      Text(
-                        ' ${_selectedDate.toLocal().toString().split(" ")[0]}',
-                        style: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: SfCalendar(
-                          view: CalendarView.day,
-                          dataSource: _calendarDataSource,
-                          onTap: (CalendarTapDetails details) {
-                            if (details.appointments != null &&
-                                details.appointments!.isNotEmpty) {
-                              final Appointment appointment =
-                                  details.appointments!.first;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => EventDetailsPage(
-                                    appointment: appointment,
-                                    eventId:
-                                        appointment.eventId, // Pass eventId
-                                  ),
-                                ),
-                              ).then((updatedAppointment) {
-                                if (updatedAppointment != null) {
-                                  // Update local appointment with new details
-                                  setState(() {
-                                    appointment.subject =
-                                        updatedAppointment.subject;
-                                    appointment.startTime =
-                                        updatedAppointment.startTime;
-                                    appointment.endTime =
-                                        updatedAppointment.endTime;
-                                  });
-                                  // Sync changes to Google Calendar API
-                                  _updateGoogleCalendarEvent(appointment);
-                                }
-                              });
-                            }
-                          },
+      body: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+        ),
+        child: Center(
+          child: user == null
+              ? ElevatedButton(
+                  onPressed: _signInWithGoogle,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24.0, vertical: 12.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                  ),
+                  child: const Text('Sign in with Google'),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: GestureDetector(
+                    onHorizontalDragEnd: (details) {
+                      setState(() {
+                        if (details.velocity.pixelsPerSecond.dx > 0) {
+                          _selectedDate =
+                              _selectedDate.subtract(const Duration(days: 1));
+                        } else if (details.velocity.pixelsPerSecond.dx < 0) {
+                          _selectedDate =
+                              _selectedDate.add(const Duration(days: 1));
+                        }
+                        if (!_eventCache
+                            .containsKey(_normalizeDate(_selectedDate))) {
+                          _fetchCalendarEvents(_selectedDate);
+                        } else {
+                          _calendarDataSource = AppointmentDataSource(
+                              _eventCache[_normalizeDate(_selectedDate)] ?? []);
+                        }
+                      });
+                    },
+                    child: Column(
+                      children: [
+                        Text(
+                          ' ${_selectedDate.toLocal().toString().split(" ")[0]}',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: Card(
+                            elevation: 5,
+                            margin: const EdgeInsets.all(8.0),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15.0),
+                            ),
+                            child: SfCalendar(
+                              view: CalendarView.day,
+                              dataSource: _calendarDataSource,
+                              headerStyle: const CalendarHeaderStyle(
+                                textAlign: TextAlign.center,
+                                backgroundColor: Colors.white,
+                                textStyle: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              todayHighlightColor: Colors.black,
+                              onTap: (CalendarTapDetails details) {
+                                if (details.appointments != null &&
+                                    details.appointments!.isNotEmpty) {
+                                  final Appointment appointment =
+                                      details.appointments!.first;
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => EventDetailsPage(
+                                        appointment: appointment,
+                                        eventId:
+                                            appointment.eventId, // Pass eventId
+                                      ),
+                                    ),
+                                  ).then((updatedAppointment) {
+                                    if (updatedAppointment != null) {
+                                      // Update local appointment with new details
+                                      setState(() {
+                                        appointment.subject =
+                                            updatedAppointment.subject;
+                                        appointment.startTime =
+                                            updatedAppointment.startTime;
+                                        appointment.endTime =
+                                            updatedAppointment.endTime;
+                                      });
+                                      // Sync changes to Google Calendar API
+                                      _updateGoogleCalendarEvent(appointment);
+                                    }
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+        ),
       ),
     );
   }

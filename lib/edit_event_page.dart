@@ -101,97 +101,134 @@ class _EditEventPageState extends State<EditEventPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Event'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         actions: [
           IconButton(
-            icon: const Icon(Icons.save),
+            icon: const Icon(Icons.save, color: Colors.black),
             onPressed: _saveEvent,
           ),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: "Event Title"),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _locationController,
-                decoration: const InputDecoration(labelText: "Location"),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: "Description"),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 20),
-              Row(
+        child: Card(
+          elevation: 5,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: _startTime ?? DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (pickedDate != null) {
-                          setState(() => _startTime = pickedDate);
-                        }
-                      },
-                      child: const Text("Pick Start Time"),
+                  TextField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: "Event Title",
+                      labelStyle: TextStyle(color: Colors.black),
                     ),
+                    style: const TextStyle(color: Colors.black),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: _endTime ?? DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (pickedDate != null) {
-                          setState(() => _endTime = pickedDate);
-                        }
-                      },
-                      child: const Text("Pick End Time"),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _locationController,
+                    decoration: const InputDecoration(
+                      labelText: "Location",
+                      labelStyle: TextStyle(color: Colors.black),
                     ),
+                    style: const TextStyle(color: Colors.black),
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Members",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: "Description",
+                      labelStyle: TextStyle(color: Colors.black),
+                    ),
+                    style: const TextStyle(color: Colors.black),
+                    maxLines: 3,
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.person_add),
-                    onPressed: _pickContact,
-                  ),
-                ],
-              ),
-              ..._members
-                  .map((member) => ListTile(
-                        title: Text(member),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () =>
-                              setState(() => _members.remove(member)),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final pickedDate = await showDatePicker(
+                              context: context,
+                              initialDate: _startTime ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
+                            if (pickedDate != null) {
+                              setState(() => _startTime = pickedDate);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                          ),
+                          child: const Text("Pick Start Time"),
                         ),
-                      ))
-                  .toList(),
-            ],
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final pickedDate = await showDatePicker(
+                              context: context,
+                              initialDate: _endTime ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
+                            if (pickedDate != null) {
+                              setState(() => _endTime = pickedDate);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                          ),
+                          child: const Text("Pick End Time"),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Members",
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.person_add, color: Colors.black),
+                        onPressed: _pickContact,
+                      ),
+                    ],
+                  ),
+                  ..._members
+                      .map((member) => ListTile(
+                            title: Text(member,
+                                style: const TextStyle(color: Colors.black)),
+                            trailing: IconButton(
+                              icon:
+                                  const Icon(Icons.close, color: Colors.black),
+                              onPressed: () =>
+                                  setState(() => _members.remove(member)),
+                            ),
+                          ))
+                      .toList(),
+                ],
+              ),
+            ),
           ),
         ),
       ),
