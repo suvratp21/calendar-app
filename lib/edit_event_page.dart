@@ -149,36 +149,87 @@ class _EditEventPageState extends State<EditEventPage> {
   }
 
   Future<void> _pickDuration() async {
-    final duration = await showDialog<Duration>(
-        context: context,
-        builder: (ctx) {
-          final controller = TextEditingController();
-          return AlertDialog(
-            title: const Text('Enter duration in minutes'),
-            content: TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text("Cancel")),
-              TextButton(
-                  onPressed: () {
-                    final mins = int.tryParse(controller.text);
-                    if (mins != null) {
-                      Navigator.pop(ctx, Duration(minutes: mins));
-                    } else {
-                      Navigator.pop(ctx);
-                    }
-                  },
-                  child: const Text("OK"))
-            ],
-          );
-        });
-    if (duration != null && _startTime != null) {
+    int selectedHours = 0;
+    int selectedMinutes = 0;
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Select Duration"),
+              content: SizedBox(
+                height: 200,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text("Hours"),
+                          Expanded(
+                            child: ListWheelScrollView.useDelegate(
+                              itemExtent: 40,
+                              onSelectedItemChanged: (index) {
+                                setStateDialog(() {
+                                  selectedHours = index;
+                                });
+                              },
+                              childDelegate: ListWheelChildBuilderDelegate(
+                                builder: (context, index) {
+                                  if (index < 0 || index > 12) return null;
+                                  return Center(child: Text("$index"));
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text("Minutes"),
+                          Expanded(
+                            child: ListWheelScrollView.useDelegate(
+                              itemExtent: 40,
+                              onSelectedItemChanged: (index) {
+                                setStateDialog(() {
+                                  selectedMinutes = index;
+                                });
+                              },
+                              childDelegate: ListWheelChildBuilderDelegate(
+                                builder: (context, index) {
+                                  if (index < 0 || index > 59) return null;
+                                  return Center(child: Text("$index"));
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("OK"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (_startTime != null) {
       setState(() {
-        _endTime = _startTime!.add(duration);
+        _endTime = _startTime!
+            .add(Duration(hours: selectedHours, minutes: selectedMinutes));
       });
     }
   }
