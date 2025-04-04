@@ -335,6 +335,7 @@ class _AuthScreenState extends State<AuthScreen> {
             title: 'Upcoming Event',
             body: 'Your event "${appointment.subject}" starts in 10 minutes.',
             notificationLayout: NotificationLayout.Default,
+            payload: {'eventId': appointment.eventId}, // Add eventId to payload
           ),
           actionButtons: [
             NotificationActionButton(
