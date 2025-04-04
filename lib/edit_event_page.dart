@@ -111,16 +111,15 @@ class _EditEventPageState extends State<EditEventPage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(0),
+        padding: const EdgeInsets.all(16.0),
         child: Card(
-          elevation: 5,
-          margin: const EdgeInsets.all(0),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
           ),
           color: Colors.white,
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(20.0),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,24 +129,27 @@ class _EditEventPageState extends State<EditEventPage> {
                     decoration: const InputDecoration(
                       labelText: "Event Title",
                       labelStyle: TextStyle(color: Colors.black),
+                      border: OutlineInputBorder(),
                     ),
                     style: const TextStyle(color: Colors.black),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 20),
                   TextField(
                     controller: _locationController,
                     decoration: const InputDecoration(
                       labelText: "Location",
                       labelStyle: TextStyle(color: Colors.black),
+                      border: OutlineInputBorder(),
                     ),
                     style: const TextStyle(color: Colors.black),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 20),
                   TextField(
                     controller: _descriptionController,
                     decoration: const InputDecoration(
                       labelText: "Description",
                       labelStyle: TextStyle(color: Colors.black),
+                      border: OutlineInputBorder(),
                     ),
                     style: const TextStyle(color: Colors.black),
                     maxLines: 3,
@@ -161,11 +163,12 @@ class _EditEventPageState extends State<EditEventPage> {
                       color: Colors.black,
                     ),
                   ),
+                  const Divider(color: Colors.black54, thickness: 1),
                   const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton(
+                        child: ElevatedButton.icon(
                           onPressed: () async {
                             final pickedDate = await showDatePicker(
                               context: context,
@@ -184,12 +187,13 @@ class _EditEventPageState extends State<EditEventPage> {
                               borderRadius: BorderRadius.circular(10.0),
                             ),
                           ),
-                          child: const Text("Pick Start Time"),
+                          icon: const Icon(Icons.calendar_today),
+                          label: const Text("Pick Start Time"),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: ElevatedButton(
+                        child: ElevatedButton.icon(
                           onPressed: () async {
                             final pickedDate = await showDatePicker(
                               context: context,
@@ -208,20 +212,30 @@ class _EditEventPageState extends State<EditEventPage> {
                               borderRadius: BorderRadius.circular(10.0),
                             ),
                           ),
-                          child: const Text("Pick End Time"),
+                          icon: const Icon(Icons.calendar_today),
+                          label: const Text("Pick End Time"),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
+                  const Text(
+                    'Members',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const Divider(color: Colors.black54, thickness: 1),
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        " Members",
+                        "Add or Remove Members",
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                           color: Colors.black,
                         ),
                       ),
@@ -231,6 +245,7 @@ class _EditEventPageState extends State<EditEventPage> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 10),
                   ..._members
                       .map((member) => ListTile(
                             title: Text(member,
@@ -243,6 +258,24 @@ class _EditEventPageState extends State<EditEventPage> {
                             ),
                           ))
                       .toList(),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _saveEvent,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.0),
+                      ),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "Save Event",
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

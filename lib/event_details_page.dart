@@ -88,46 +88,80 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(0),
+        padding: const EdgeInsets.all(16.0),
         child: Card(
-          elevation: 5,
-          margin: const EdgeInsets.all(0),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
           ),
           color: Colors.white,
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(20.0),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Title: ${widget.appointment.subject}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Start Time: ${widget.appointment.startTime}',
-                    style: const TextStyle(fontSize: 16, color: Colors.black),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Duration: ${duration.inHours} hours and ${duration.inMinutes % 60} minutes',
-                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                  Row(
+                    children: [
+                      const Icon(Icons.event, color: Colors.black, size: 28),
+                      const SizedBox(width: 10),
+                      Text(
+                        widget.appointment.subject,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Members:',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time,
+                          color: Colors.black, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Start Time: ${widget.appointment.startTime}',
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.black),
+                          overflow: TextOverflow.ellipsis, // Prevent overflow
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(Icons.timer, color: Colors.black, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Duration: ${duration.inHours} hours and ${duration.inMinutes % 60} minutes',
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.black),
+                          overflow: TextOverflow.ellipsis, // Prevent overflow
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.black54, thickness: 1),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(Icons.people, color: Colors.black, size: 24),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Members:',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   members.isNotEmpty
@@ -137,12 +171,19 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                               .map((member) => Padding(
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 4.0),
-                                    child: Text(
-                                      member,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.black,
-                                      ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.person,
+                                            color: Colors.black, size: 20),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          member,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ))
                               .toList(),
@@ -154,13 +195,19 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   const SizedBox(height: 20),
                   const Divider(color: Colors.black54, thickness: 1),
                   const SizedBox(height: 10),
-                  const Text(
-                    'Additional Information:',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                  Row(
+                    children: [
+                      const Icon(Icons.info, color: Colors.black, size: 24),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Additional Information:',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   const Text(
