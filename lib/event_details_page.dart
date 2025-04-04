@@ -88,132 +88,120 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Card(
-          elevation: 8,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0),
-          ),
-          color: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: SingleChildScrollView(
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0), // increased overall padding
+          child: Card(
+            elevation: 10,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15.0)),
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(20.0), // generous inner padding
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.event, color: Colors.black, size: 28),
-                      const SizedBox(width: 10),
-                      Text(
-                        widget.appointment.subject,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
+                  // Event Title Section
+                  ListTile(
+                    leading:
+                        const Icon(Icons.event, color: Colors.black, size: 32),
+                    title: Text(
+                      widget.appointment.subject,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      const Icon(Icons.access_time,
-                          color: Colors.black, size: 24),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Start Time: ${widget.appointment.startTime}',
-                          style: const TextStyle(
-                              fontSize: 16, color: Colors.black),
-                          overflow: TextOverflow.ellipsis, // Prevent overflow
-                        ),
-                      ),
-                    ],
+                  // Timing Section using ListTiles
+                  ListTile(
+                    leading: const Icon(Icons.access_time, color: Colors.black),
+                    title: const Text(
+                      'Start Time:',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      widget.appointment.startTime.toString(),
+                      style:
+                          const TextStyle(fontSize: 16, color: Colors.black87),
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.timer, color: Colors.black, size: 24),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Duration: ${duration.inHours} hours and ${duration.inMinutes % 60} minutes',
-                          style: const TextStyle(
-                              fontSize: 16, color: Colors.black),
-                          overflow: TextOverflow.ellipsis, // Prevent overflow
-                        ),
-                      ),
-                    ],
+                  ListTile(
+                    leading: const Icon(Icons.timer, color: Colors.black),
+                    title: const Text(
+                      'Duration:',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      '${duration.inHours} hrs ${duration.inMinutes % 60} mins',
+                      style:
+                          const TextStyle(fontSize: 16, color: Colors.black87),
+                    ),
                   ),
                   const SizedBox(height: 20),
                   const Divider(color: Colors.black54, thickness: 1),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.people, color: Colors.black, size: 24),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Members:',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
+                  // Members Section
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
+                    child: Text(
+                      'Members:',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 10),
                   members.isNotEmpty
                       ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: members
-                              .map((member) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 4.0),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.person,
-                                            color: Colors.black, size: 20),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          member,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ))
-                              .toList(),
+                          children: members.map((member) {
+                            return ListTile(
+                              leading:
+                                  const Icon(Icons.person, color: Colors.black),
+                              title: Text(
+                                member,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         )
-                      : const Text(
-                          'No members added.',
-                          style: TextStyle(fontSize: 16, color: Colors.black),
+                      : const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Text(
+                            'No members added.',
+                            style:
+                                TextStyle(fontSize: 16, color: Colors.black87),
+                          ),
                         ),
                   const SizedBox(height: 20),
                   const Divider(color: Colors.black54, thickness: 1),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.info, color: Colors.black, size: 24),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Additional Information:',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
+                  // Additional Information Section
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
+                    child: Text(
+                      'Additional Information:',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'No additional information available.',
-                    style: TextStyle(fontSize: 16, color: Colors.black),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Text(
+                      'No additional information available.',
+                      style: TextStyle(fontSize: 16, color: Colors.black87),
+                    ),
                   ),
                 ],
               ),

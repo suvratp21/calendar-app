@@ -215,7 +215,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       Text('Add Event', style: TextStyle(color: Colors.black))),
               PopupMenuItem(
                   value: 'go_to',
-                  child: Text('Go To',
+                  child: Text('Go to',
                       style: TextStyle(color: Colors.black))), // new item
               PopupMenuItem(
                   value: 'settings',
