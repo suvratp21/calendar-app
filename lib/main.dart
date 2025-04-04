@@ -41,43 +41,93 @@ void main() async {
   runApp(const MyApp());
 }
 
-// Global static method to handle notification actions
+// Helper method to send SMS to multiple contacts
+Future<void> _sendSms(String message, List<String> members) async {
+  print('DEBUG: Preparing to send SMS to members: $members');
+  if (members.isEmpty) {
+    print('DEBUG: No members to send SMS to.');
+    return;
+  }
+  for (String member in members) {
+    final String encodedMessage = Uri.encodeComponent(message);
+    final Uri smsUri = Uri.parse('sms:$member?body=$encodedMessage');
+
+    try {
+      print('DEBUG: Attempting to send SMS to $member with URI: $smsUri');
+      if (await canLaunchUrl(smsUri)) {
+        await launchUrl(smsUri, mode: LaunchMode.externalApplication);
+        print('DEBUG: SMS sent successfully to $member.');
+      } else {
+        print('DEBUG: Could not send SMS to $member. URI: $smsUri');
+      }
+    } catch (e) {
+      print('DEBUG: Error while sending SMS to $member: $e');
+    }
+  }
+  print('DEBUG: Finished sending SMS to all members.');
+}
+
 @pragma('vm:entry-point') // Required for background execution
 Future<void> onNotificationAction(ReceivedAction receivedAction) async {
+  // Fetch the event ID from the notification payload
+  String? eventId = receivedAction.payload?['eventId'];
+  if (eventId == null) {
+    print('No event ID found in notification payload.');
+    return;
+  }
+
+  // Fetch the event details from Firestore using the user's email ID
+  List<String> members = [];
+  try {
+    final userEmail = FirebaseAuth.instance.currentUser?.email;
+    if (userEmail == null) {
+      print('User email not found.');
+      return;
+    }
+
+    DocumentSnapshot eventSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userEmail)
+        .collection('events')
+        .doc(eventId)
+        .get();
+
+    if (eventSnapshot.exists) {
+      Map<String, dynamic>? eventData =
+          eventSnapshot.data() as Map<String, dynamic>?;
+      if (eventData != null && eventData.containsKey('members')) {
+        members = List<String>.from(eventData['members']);
+        print('Fetched members for event $eventId: $members');
+      } else {
+        print('No members found for event $eventId.');
+      }
+    } else {
+      print('Event with ID $eventId does not exist.');
+    }
+  } catch (e) {
+    print('Error fetching event details: $e');
+    return;
+  }
+
+  // Handle notification actions
   switch (receivedAction.buttonKeyPressed) {
     case 'ON_TIME':
       print('User selected "On Time" for event: ${receivedAction.title}');
       break;
     case 'RUNNING_LATE':
       print('User selected "Running Late" for event: ${receivedAction.title}');
-      await _sendSms('Regarding "${receivedAction.title}": I will be late.');
+      await _sendSms(
+          'Regarding "${receivedAction.title}": I will be late.', members);
       break;
     case 'POSTPONE':
       print('User selected "Postpone" for event: ${receivedAction.title}');
       await _sendSms(
-          'Regarding "${receivedAction.title}": The event is postponed.');
+          'Regarding "${receivedAction.title}": The event is postponed.',
+          members);
       break;
     default:
       print(
           'Unhandled notification action: ${receivedAction.buttonKeyPressed}');
-  }
-}
-
-// Helper method to send SMS
-Future<void> _sendSms(String message) async {
-  final String encodedMessage = Uri.encodeComponent(message);
-  final Uri smsUri = Uri.parse('sms:?body=$encodedMessage');
-
-  try {
-    print('Attempting to send SMS: $smsUri');
-    if (await canLaunchUrl(smsUri)) {
-      await launchUrl(smsUri, mode: LaunchMode.externalApplication);
-      print('SMS sent successfully.');
-    } else {
-      print('Could not send SMS. URI: $smsUri');
-    }
-  } catch (e) {
-    print('Error while sending SMS: $e');
   }
 }
 
