@@ -549,21 +549,11 @@ class _AuthScreenState extends State<AuthScreen> {
                         _selectedDate =
                             _selectedDate.subtract(const Duration(days: 1));
                       }
-                      // Directly fetch events without checking cache.
                       _fetchCalendarEvents(_selectedDate);
                     });
                   },
                   child: Column(
                     children: [
-                      Text(
-                        ' ${_normalizeDate(_selectedDate).toLocal().toString().split(" ")[0]}',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
                       Expanded(
                         child: SfCalendar(
                           view: CalendarView.day,
