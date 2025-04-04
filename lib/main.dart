@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:async'; // Add this import for TimeoutException
 import 'package:permission_handler/permission_handler.dart';
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'add_name_page.dart';
 import 'add_event_page.dart';
 import 'event_details_page.dart'; // Import the event details page
@@ -15,6 +16,21 @@ import 'event_details_page.dart'; // Import the event details page
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Initialize Awesome Notifications
+  AwesomeNotifications().initialize(
+    null,
+    [
+      NotificationChannel(
+        channelKey: 'basic_channel',
+        channelName: 'Basic Notifications',
+        channelDescription: 'Notification channel for basic tests',
+        defaultColor: Colors.deepPurple,
+        ledColor: Colors.white,
+      )
+    ],
+  );
+
   runApp(const MyApp());
 }
 
@@ -56,6 +72,38 @@ class _AuthScreenState extends State<AuthScreen> {
   void initState() {
     super.initState();
     _attemptSilentSignIn(); // Added to restore credentials silently
+    _requestNotificationPermissions(); // Request notification permissions
+  }
+
+  Future<void> _requestNotificationPermissions() async {
+    bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
+    if (!isAllowed) {
+      // Show a dialog to request permissions
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Allow Notifications'),
+          content: const Text(
+              'This app needs permission to send you notifications.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Deny'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await AwesomeNotifications()
+                    .requestPermissionToSendNotifications();
+              },
+              child: const Text('Allow'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _attemptSilentSignIn() async {
@@ -145,6 +193,33 @@ class _AuthScreenState extends State<AuthScreen> {
   DateTime _normalizeDate(DateTime date) =>
       DateTime(date.year, date.month, date.day);
 
+  Future<void> _scheduleNotification(Appointment appointment) async {
+    final notificationTime =
+        appointment.startTime.subtract(const Duration(minutes: 10));
+    if (notificationTime.isAfter(DateTime.now())) {
+      try {
+        await AwesomeNotifications().createNotification(
+          content: NotificationContent(
+            id: appointment.eventId.hashCode,
+            channelKey: 'basic_channel',
+            title: 'Upcoming Event',
+            body: 'Your event "${appointment.subject}" starts in 10 minutes.',
+            notificationLayout: NotificationLayout.Default,
+          ),
+          schedule: NotificationCalendar.fromDate(date: notificationTime),
+        );
+        print(
+            'Notification scheduled for event: ${appointment.subject} at $notificationTime');
+      } catch (e) {
+        print(
+            'Failed to schedule notification for event: ${appointment.subject}. Error: $e');
+      }
+    } else {
+      print(
+          'Notification not scheduled for event: ${appointment.subject} as the time has already passed.');
+    }
+  }
+
   Future<void> _fetchCalendarEvents(DateTime date) async {
     if (_accessToken == null) return;
 
@@ -190,6 +265,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 color: Colors.blue,
                 eventId: event['id'] ?? '',
               ));
+              // Schedule notification for the event
+              _scheduleNotification(appointments.last);
               print(
                   'Event: ${event['summary']}, Start: $startTime, End: $endTime');
             }
