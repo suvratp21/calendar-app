@@ -159,9 +159,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _nameController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
 
-  // Correctly initialize _eventCache as an empty map
-  final Map<DateTime, List<Appointment>> _eventCache = {};
-
   String? _accessToken;
   AppointmentDataSource? _calendarDataSource;
 
@@ -372,16 +369,6 @@ class _AuthScreenState extends State<AuthScreen> {
     DateTime startDate = _normalizeDate(date.subtract(const Duration(days: 5)));
     DateTime endDate = _normalizeDate(date.add(const Duration(days: 5)));
 
-    // Check if the range is already cached using normalized keys
-    if (_eventCache.containsKey(_normalizeDate(date))) {
-      print("Using cached events for date: ${_normalizeDate(date)}");
-      setState(() {
-        _calendarDataSource =
-            AppointmentDataSource(_eventCache[_normalizeDate(date)] ?? []);
-      });
-      return;
-    }
-
     final url = Uri.parse(
         'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&orderBy=startTime&singleEvents=true&timeMin=${startDate.toUtc().toIso8601String()}&timeMax=${endDate.toUtc().toIso8601String()}');
     try {
@@ -420,21 +407,9 @@ class _AuthScreenState extends State<AuthScreen> {
           }
         }
 
-        // Cache the events for each day in the range using normalized dates
+        // Update the calendar data source for the selected date directly using fetched appointments.
         setState(() {
-          for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
-            DateTime currentDate =
-                _normalizeDate(startDate.add(Duration(days: i)));
-            DateTime dayStart = currentDate;
-            DateTime dayEnd = currentDate.add(const Duration(days: 1));
-            _eventCache[currentDate] = appointments
-                .where((event) =>
-                    event.startTime.isBefore(dayEnd) &&
-                    event.endTime.isAfter(dayStart))
-                .toList();
-          }
-          _calendarDataSource =
-              AppointmentDataSource(_eventCache[_normalizeDate(date)] ?? []);
+          _calendarDataSource = AppointmentDataSource(appointments);
         });
       } else {
         print('Failed to fetch calendar events: ${response.body}');
@@ -481,10 +456,6 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (e) {
       print('Error updating Google event: $e');
     }
-  }
-
-  List<Appointment> _getEventsForSelectedDate() {
-    return _eventCache[_normalizeDate(_selectedDate)] ?? [];
   }
 
   @override
@@ -570,26 +541,22 @@ class _AuthScreenState extends State<AuthScreen> {
               : GestureDetector(
                   onHorizontalDragEnd: (details) {
                     setState(() {
-                      if (details.velocity.pixelsPerSecond.dx > 0) {
-                        _selectedDate =
-                            _selectedDate.subtract(const Duration(days: 1));
-                      } else if (details.velocity.pixelsPerSecond.dx < 0) {
+                      // Swipe left for next day, right for previous day.
+                      if (details.velocity.pixelsPerSecond.dx < 0) {
                         _selectedDate =
                             _selectedDate.add(const Duration(days: 1));
+                      } else if (details.velocity.pixelsPerSecond.dx > 0) {
+                        _selectedDate =
+                            _selectedDate.subtract(const Duration(days: 1));
                       }
-                      if (!_eventCache
-                          .containsKey(_normalizeDate(_selectedDate))) {
-                        _fetchCalendarEvents(_selectedDate);
-                      } else {
-                        _calendarDataSource = AppointmentDataSource(
-                            _eventCache[_normalizeDate(_selectedDate)] ?? []);
-                      }
+                      // Directly fetch events without checking cache.
+                      _fetchCalendarEvents(_selectedDate);
                     });
                   },
                   child: Column(
                     children: [
                       Text(
-                        ' ${_selectedDate.toLocal().toString().split(" ")[0]}',
+                        ' ${_normalizeDate(_selectedDate).toLocal().toString().split(" ")[0]}',
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
