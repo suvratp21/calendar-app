@@ -69,6 +69,79 @@ class _AddEventPageState extends State<AddEventPage> {
     Navigator.of(context).pop(eventData);
   }
 
+  Future<void> _pickDate() async {
+    final initial = _startTime ?? DateTime.now();
+    final picked = await showDatePicker(
+        context: context,
+        initialDate: initial,
+        firstDate: DateTime(2000),
+        lastDate: DateTime(2100));
+    if (picked != null) {
+      setState(() {
+        _startTime = DateTime(picked.year, picked.month, picked.day,
+            _startTime?.hour ?? 0, _startTime?.minute ?? 0);
+        _endTime = _startTime != null && _endTime != null
+            ? DateTime(picked.year, picked.month, picked.day, _endTime!.hour,
+                _endTime!.minute)
+            : _startTime;
+      });
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final initialTime = _startTime != null
+        ? TimeOfDay.fromDateTime(_startTime!)
+        : TimeOfDay.now();
+    final picked =
+        await showTimePicker(context: context, initialTime: initialTime);
+    if (picked != null) {
+      setState(() {
+        final date = _startTime ?? DateTime.now();
+        _startTime = DateTime(
+            date.year, date.month, date.day, picked.hour, picked.minute);
+        if (_endTime != null) {
+          _endTime = DateTime(_endTime!.year, _endTime!.month, _endTime!.day,
+              picked.hour, picked.minute);
+        }
+      });
+    }
+  }
+
+  Future<void> _pickDuration() async {
+    final duration = await showDialog<Duration>(
+        context: context,
+        builder: (ctx) {
+          final controller = TextEditingController();
+          return AlertDialog(
+            title: const Text('Enter duration in minutes'),
+            content: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Cancel")),
+              TextButton(
+                  onPressed: () {
+                    final mins = int.tryParse(controller.text);
+                    if (mins != null) {
+                      Navigator.pop(ctx, Duration(minutes: mins));
+                    } else {
+                      Navigator.pop(ctx);
+                    }
+                  },
+                  child: const Text("OK"))
+            ],
+          );
+        });
+    if (duration != null && _startTime != null) {
+      setState(() {
+        _endTime = _startTime!.add(duration);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -139,50 +212,41 @@ class _AddEventPageState extends State<AddEventPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final pickedDate = await showDatePicker(
-                              context: context,
-                              initialDate: _startTime ?? DateTime.now(),
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100),
-                            );
-                            if (pickedDate != null) {
-                              setState(() => _startTime = pickedDate);
-                            }
-                          },
+                        child: ElevatedButton(
+                          onPressed: _pickDate,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10.0)),
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
                           ),
-                          icon: const Icon(Icons.calendar_today),
-                          label: const Text("Pick Start Time"),
+                          child: const Text("Date",
+                              style: TextStyle(fontSize: 18)),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final pickedDate = await showDatePicker(
-                              context: context,
-                              initialDate: _endTime ?? DateTime.now(),
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100),
-                            );
-                            if (pickedDate != null) {
-                              setState(() => _endTime = pickedDate);
-                            }
-                          },
+                        child: ElevatedButton(
+                          onPressed: _pickTime,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10.0)),
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
                           ),
-                          icon: const Icon(Icons.calendar_today),
-                          label: const Text("Pick End Time"),
+                          child: const Text("Time",
+                              style: TextStyle(fontSize: 18)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _pickDuration,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          ),
+                          child: const Text("Duration",
+                              style: TextStyle(fontSize: 18)),
                         ),
                       ),
                     ],
@@ -221,18 +285,34 @@ class _AddEventPageState extends State<AddEventPage> {
                         ),
                       )),
                   const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _saveEvent,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12.0),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10.0)),
-                    ),
-                    child: const Center(
-                        child:
-                            Text("Save Event", style: TextStyle(fontSize: 18))),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _saveEvent,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          ),
+                          child: const Text("Save",
+                              style: TextStyle(fontSize: 18)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          ),
+                          child: const Text("Cancel",
+                              style: TextStyle(fontSize: 18)),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
