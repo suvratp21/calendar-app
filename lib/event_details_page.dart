@@ -3,9 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'edit_event_page.dart'; // Import the edit event page
 import 'main.dart'; // Import the Appointment class
+import 'models.dart' as myModels; // use alias to avoid conflict
 
 class EventDetailsPage extends StatefulWidget {
-  final Appointment appointment;
+  final myModels.Appointment appointment; // updated type with alias
   final String eventId; // Unique event ID for Firebase
 
   const EventDetailsPage({

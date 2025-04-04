@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'main.dart';
+import 'models.dart' as myModels; // use alias for Appointment type
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class EditEventPage extends StatefulWidget {
-  final Appointment appointment;
+  final myModels.Appointment appointment; // updated type with alias
   final String eventId;
   final List<String> members;
 
@@ -246,18 +247,15 @@ class _EditEventPageState extends State<EditEventPage> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  ..._members
-                      .map((member) => ListTile(
-                            title: Text(member,
-                                style: const TextStyle(color: Colors.black)),
-                            trailing: IconButton(
-                              icon:
-                                  const Icon(Icons.close, color: Colors.black),
-                              onPressed: () =>
-                                  setState(() => _members.remove(member)),
-                            ),
-                          ))
-                      ,
+                  ..._members.map((member) => ListTile(
+                        title: Text(member,
+                            style: const TextStyle(color: Colors.black)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.black),
+                          onPressed: () =>
+                              setState(() => _members.remove(member)),
+                        ),
+                      )),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _saveEvent,
