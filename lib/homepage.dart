@@ -8,6 +8,7 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'add_name_page.dart';
 import 'add_event_page.dart';
 import 'event_details_page.dart';
+import 'settings_page.dart'; // new import
 import 'models.dart' as myModels;
 import 'calendar_service.dart';
 import 'notification_service.dart';
@@ -25,6 +26,8 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _accessToken;
   myModels.AppointmentDataSource? _calendarDataSource;
   bool _isUpdatingCalendar = false; // added flag
+  final CalendarController _calendarController =
+      CalendarController(); // new controller
 
   @override
   void initState() {
@@ -172,6 +175,27 @@ class _AuthScreenState extends State<AuthScreen> {
                   context,
                   MaterialPageRoute(builder: (context) => const AddEventPage()),
                 );
+              } else if (value == 'go_to') {
+                showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                ).then((selectedDate) {
+                  if (selectedDate != null) {
+                    setState(() {
+                      _selectedDate = selectedDate;
+                    });
+                    _calendarController.displayDate =
+                        selectedDate; // update calendar display
+                    _fetchEvents();
+                  }
+                });
+              } else if (value == 'settings') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsPage()),
+                );
               } else if (value == 'logout') {
                 _logout();
               }
@@ -189,6 +213,14 @@ class _AuthScreenState extends State<AuthScreen> {
                   value: 'add_event',
                   child:
                       Text('Add Event', style: TextStyle(color: Colors.black))),
+              PopupMenuItem(
+                  value: 'go_to',
+                  child: Text('Go To',
+                      style: TextStyle(color: Colors.black))), // new item
+              PopupMenuItem(
+                  value: 'settings',
+                  child:
+                      Text('Settings', style: TextStyle(color: Colors.black))),
               PopupMenuItem(
                   value: 'logout',
                   child: Text('Logout', style: TextStyle(color: Colors.black))),
@@ -216,6 +248,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   children: [
                     Expanded(
                       child: SfCalendar(
+                        controller:
+                            _calendarController, // pass updated controller here
                         initialDisplayDate: _selectedDate, // new line added
                         view: CalendarView.day,
                         dataSource: _calendarDataSource,
@@ -276,6 +310,15 @@ class _AuthScreenState extends State<AuthScreen> {
                   ],
                 ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddEventPage()),
+          );
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }
