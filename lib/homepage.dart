@@ -24,6 +24,7 @@ class _AuthScreenState extends State<AuthScreen> {
   DateTime _selectedDate = DateTime.now();
   String? _accessToken;
   myModels.AppointmentDataSource? _calendarDataSource;
+  bool _isUpdatingCalendar = false; // added flag
 
   @override
   void initState() {
@@ -211,67 +212,68 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   child: const Text('Sign in with Google'),
                 )
-              : GestureDetector(
-                  onHorizontalDragEnd: (details) {
-                    setState(() {
-                      if (details.velocity.pixelsPerSecond.dx < 0) {
-                        _selectedDate =
-                            _selectedDate.add(const Duration(days: 1));
-                      } else if (details.velocity.pixelsPerSecond.dx > 0) {
-                        _selectedDate =
-                            _selectedDate.subtract(const Duration(days: 1));
-                      }
-                      _fetchEvents();
-                    });
-                  },
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: SfCalendar(
-                          view: CalendarView.day,
-                          dataSource: _calendarDataSource,
-                          headerStyle: const CalendarHeaderStyle(
-                            textAlign: TextAlign.center,
-                            backgroundColor: Colors.white,
-                            textStyle: TextStyle(
-                                color: Colors.black,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          todayHighlightColor: Colors.black,
-                          onTap: (CalendarTapDetails details) {
-                            if (details.appointments != null &&
-                                details.appointments!.isNotEmpty) {
-                              final myModels.Appointment appointment =
-                                  details.appointments!.first;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => EventDetailsPage(
-                                    appointment: appointment,
-                                    eventId: appointment.eventId,
-                                  ),
-                                ),
-                              ).then((updatedAppointment) {
-                                if (updatedAppointment != null) {
-                                  setState(() {
-                                    appointment.subject =
-                                        updatedAppointment['subject'];
-                                    appointment.startTime =
-                                        updatedAppointment['startTime'];
-                                    appointment.endTime =
-                                        updatedAppointment['endTime'];
-                                  });
-                                  updateGoogleCalendarEvent(
-                                      _accessToken!, appointment);
-                                }
+              : Column(
+                  children: [
+                    Expanded(
+                      child: SfCalendar(
+                        initialDisplayDate: _selectedDate, // new line added
+                        view: CalendarView.day,
+                        dataSource: _calendarDataSource,
+                        headerStyle: const CalendarHeaderStyle(
+                          textAlign: TextAlign.center,
+                          backgroundColor: Colors.white,
+                          textStyle: TextStyle(
+                              color: Colors.black,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        todayHighlightColor: Colors.black,
+                        onViewChanged: (ViewChangedDetails details) {
+                          if (details.visibleDates.isNotEmpty) {
+                            DateTime newSelectedDate =
+                                details.visibleDates.first;
+                            if (newSelectedDate != _selectedDate) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                setState(() {
+                                  _selectedDate = newSelectedDate;
+                                });
+                                _fetchEvents();
                               });
                             }
-                          },
-                        ),
+                          }
+                        },
+                        onTap: (CalendarTapDetails details) {
+                          if (details.appointments != null &&
+                              details.appointments!.isNotEmpty) {
+                            final myModels.Appointment appointment =
+                                details.appointments!.first;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EventDetailsPage(
+                                  appointment: appointment,
+                                  eventId: appointment.eventId,
+                                ),
+                              ),
+                            ).then((updatedAppointment) {
+                              if (updatedAppointment != null) {
+                                setState(() {
+                                  appointment.subject =
+                                      updatedAppointment['subject'];
+                                  appointment.startTime =
+                                      updatedAppointment['startTime'];
+                                  appointment.endTime =
+                                      updatedAppointment['endTime'];
+                                });
+                                updateGoogleCalendarEvent(
+                                    _accessToken!, appointment);
+                              }
+                            });
+                          }
+                        },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
         ),
       ),

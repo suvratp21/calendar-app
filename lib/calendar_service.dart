@@ -7,10 +7,8 @@ import 'package:flutter/material.dart';
 
 Future<List<Appointment>> fetchCalendarEvents(
     String accessToken, DateTime date) async {
-  DateTime startDate = DateTime(date.year, date.month, date.day)
-      .subtract(const Duration(days: 5));
-  DateTime endDate =
-      DateTime(date.year, date.month, date.day).add(const Duration(days: 5));
+  DateTime startDate = DateTime(date.year, date.month, date.day, 0, 0, 0);
+  DateTime endDate = DateTime(date.year, date.month, date.day, 23, 59, 59);
   final url = Uri.parse(
       'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&orderBy=startTime&singleEvents=true&timeMin=${startDate.toUtc().toIso8601String()}&timeMax=${endDate.toUtc().toIso8601String()}');
   try {
@@ -47,6 +45,11 @@ Future<List<Appointment>> fetchCalendarEvents(
           print('Error parsing event: $e');
         }
       }
+      // Filter appointments to only include those on the selected day.
+      appointments = appointments.where((a) {
+        DateTime normalized(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+        return normalized(a.startTime) == normalized(date);
+      }).toList();
       return appointments;
     } else {
       print('Failed to fetch calendar events: ${response.body}');
