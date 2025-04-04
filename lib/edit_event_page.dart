@@ -84,7 +84,7 @@ class _EditEventPageState extends State<EditEventPage> {
       final phone =
           contact.phones.isNotEmpty ? contact.phones.first.number : null;
 
-      final displayText = phone != null ? '$name (${phone})' : name;
+      final displayText = phone != null ? '$name ($phone)' : name;
 
       if (!_members.contains(displayText)) {
         setState(() => _members.add(displayText));
@@ -257,7 +257,7 @@ class _EditEventPageState extends State<EditEventPage> {
                                   setState(() => _members.remove(member)),
                             ),
                           ))
-                      .toList(),
+                      ,
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _saveEvent,

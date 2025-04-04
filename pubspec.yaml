@@ -42,7 +42,8 @@ dependencies:
   syncfusion_flutter_calendar: ^20.2.46
   permission_handler: ^10.2.0
   flutter_contacts: ^1.1.9+2
-  awesome_notifications: ^0.7.5-dev.1
+  awesome_notifications: ^0.7.7
+  url_launcher: ^6.1.7
   
 dev_dependencies:
   flutter_test:

@@ -7,8 +7,10 @@ import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:async'; // Add this import for TimeoutException
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:url_launcher/url_launcher.dart'; // Add this import for launching messaging apps
 import 'add_name_page.dart';
 import 'add_event_page.dart';
 import 'event_details_page.dart'; // Import the event details page
@@ -31,7 +33,52 @@ void main() async {
     ],
   );
 
+  // Register the global notification action handler
+  AwesomeNotifications().setListeners(
+    onActionReceivedMethod: onNotificationAction,
+  );
+
   runApp(const MyApp());
+}
+
+// Global static method to handle notification actions
+@pragma('vm:entry-point') // Required for background execution
+Future<void> onNotificationAction(ReceivedAction receivedAction) async {
+  switch (receivedAction.buttonKeyPressed) {
+    case 'ON_TIME':
+      print('User selected "On Time" for event: ${receivedAction.title}');
+      break;
+    case 'RUNNING_LATE':
+      print('User selected "Running Late" for event: ${receivedAction.title}');
+      await _sendSms('Regarding "${receivedAction.title}": I will be late.');
+      break;
+    case 'POSTPONE':
+      print('User selected "Postpone" for event: ${receivedAction.title}');
+      await _sendSms(
+          'Regarding "${receivedAction.title}": The event is postponed.');
+      break;
+    default:
+      print(
+          'Unhandled notification action: ${receivedAction.buttonKeyPressed}');
+  }
+}
+
+// Helper method to send SMS
+Future<void> _sendSms(String message) async {
+  final String encodedMessage = Uri.encodeComponent(message);
+  final Uri smsUri = Uri.parse('sms:?body=$encodedMessage');
+
+  try {
+    print('Attempting to send SMS: $smsUri');
+    if (await canLaunchUrl(smsUri)) {
+      await launchUrl(smsUri, mode: LaunchMode.externalApplication);
+      print('SMS sent successfully.');
+    } else {
+      print('Could not send SMS. URI: $smsUri');
+    }
+  } catch (e) {
+    print('Error while sending SMS: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -73,6 +120,39 @@ class _AuthScreenState extends State<AuthScreen> {
     super.initState();
     _attemptSilentSignIn(); // Added to restore credentials silently
     _requestNotificationPermissions(); // Request notification permissions
+  }
+
+  Future<void> _sendMessageToEventMembers(
+      String eventName, String message) async {
+    final String encodedMessage =
+        Uri.encodeComponent('Regarding "$eventName": $message');
+    final Uri smsUri = Uri.parse('sms:?body=$encodedMessage');
+
+    try {
+      print('Attempting to launch SMS URI: $smsUri');
+      if (await canLaunchUrl(smsUri)) {
+        await launchUrl(smsUri, mode: LaunchMode.externalApplication);
+        print('Successfully launched messaging app.');
+      } else {
+        print('Could not launch messaging app. URI: $smsUri');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open messaging app.')),
+        );
+      }
+    } on PlatformException catch (e) {
+      print('PlatformException while launching messaging app: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('An error occurred while sending the message.')),
+      );
+    } catch (e) {
+      print('Unexpected error while launching messaging app: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'An unexpected error occurred while sending the message.')),
+      );
+    }
   }
 
   Future<void> _requestNotificationPermissions() async {
@@ -206,6 +286,20 @@ class _AuthScreenState extends State<AuthScreen> {
             body: 'Your event "${appointment.subject}" starts in 10 minutes.',
             notificationLayout: NotificationLayout.Default,
           ),
+          actionButtons: [
+            NotificationActionButton(
+              key: 'ON_TIME',
+              label: 'On Time',
+            ),
+            NotificationActionButton(
+              key: 'RUNNING_LATE',
+              label: 'Running Late',
+            ),
+            NotificationActionButton(
+              key: 'POSTPONE',
+              label: 'Postpone',
+            ),
+          ],
           schedule: NotificationCalendar.fromDate(date: notificationTime),
         );
         print(
