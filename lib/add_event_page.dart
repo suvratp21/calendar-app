@@ -124,39 +124,47 @@ class _AddEventPageState extends State<AddEventPage> {
   }
 
   Future<void> _pickDate() async {
-    final initial = _startTime ?? DateTime.now();
+    final current = _startTime ?? DateTime.now();
     final picked = await showDatePicker(
-        context: context,
-        initialDate: initial,
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2100));
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
     if (picked != null) {
+      if (picked.year == current.year &&
+          picked.month == current.month &&
+          picked.day == current.day) {
+        return; // No change in date.
+      }
+      final duration = (_startTime != null && _endTime != null)
+          ? _endTime!.difference(_startTime!)
+          : Duration.zero;
       setState(() {
         _startTime = DateTime(picked.year, picked.month, picked.day,
-            _startTime?.hour ?? 0, _startTime?.minute ?? 0);
-        _endTime = _startTime != null && _endTime != null
-            ? DateTime(picked.year, picked.month, picked.day, _endTime!.hour,
-                _endTime!.minute)
-            : _startTime;
+            current.hour, current.minute);
+        _endTime = _startTime!.add(duration);
       });
     }
   }
 
   Future<void> _pickTime() async {
-    final initialTime = _startTime != null
-        ? TimeOfDay.fromDateTime(_startTime!)
-        : TimeOfDay.now();
+    final current = _startTime ?? DateTime.now();
+    final currentTime = TimeOfDay.fromDateTime(current);
     final picked =
-        await showTimePicker(context: context, initialTime: initialTime);
+        await showTimePicker(context: context, initialTime: currentTime);
     if (picked != null) {
+      if (picked.hour == currentTime.hour &&
+          picked.minute == currentTime.minute) {
+        return; // No change in time.
+      }
+      final duration = (_startTime != null && _endTime != null)
+          ? _endTime!.difference(_startTime!)
+          : Duration.zero;
       setState(() {
-        final date = _startTime ?? DateTime.now();
-        _startTime = DateTime(
-            date.year, date.month, date.day, picked.hour, picked.minute);
-        if (_endTime != null) {
-          _endTime = DateTime(_endTime!.year, _endTime!.month, _endTime!.day,
-              picked.hour, picked.minute);
-        }
+        _startTime = DateTime(current.year, current.month, current.day,
+            picked.hour, picked.minute);
+        _endTime = _startTime!.add(duration);
       });
     }
   }
@@ -164,6 +172,11 @@ class _AddEventPageState extends State<AddEventPage> {
   Future<void> _pickDuration() async {
     int selectedHours = 0;
     int selectedMinutes = 0;
+    if (_startTime != null && _endTime != null) {
+      final currentDuration = _endTime!.difference(_startTime!);
+      selectedHours = currentDuration.inHours;
+      selectedMinutes = currentDuration.inMinutes % 60;
+    }
     await showDialog(
       context: context,
       builder: (context) {
@@ -239,10 +252,13 @@ class _AddEventPageState extends State<AddEventPage> {
         );
       },
     );
-    if (_startTime != null) {
+    if (_startTime != null && _endTime != null) {
+      final currentDuration = _endTime!.difference(_startTime!);
+      final newDuration =
+          Duration(hours: selectedHours, minutes: selectedMinutes);
+      if (currentDuration == newDuration) return; // Unchanged duration.
       setState(() {
-        _endTime = _startTime!
-            .add(Duration(hours: selectedHours, minutes: selectedMinutes));
+        _endTime = _startTime!.add(newDuration);
       });
     }
   }

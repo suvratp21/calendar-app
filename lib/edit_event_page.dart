@@ -5,6 +5,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+final GoogleSignIn _googleSignIn = GoogleSignIn(
+  scopes: [
+    'email',
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar',
+  ],
+);
 
 class EditEventPage extends StatefulWidget {
   final myModels.Appointment appointment; // updated type with alias
@@ -39,6 +50,69 @@ class _EditEventPageState extends State<EditEventPage> {
     _members = List<String>.from(widget.members);
     _startTime = widget.appointment.startTime;
     _endTime = widget.appointment.endTime;
+    _fetchGoogleCalendarDuration(); // fetch default duration from Google Calendar API
+  }
+
+  Future<void> _fetchGoogleCalendarDuration() async {
+    GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
+    if (googleUser == null) {
+      googleUser = await _googleSignIn.signIn();
+    }
+    final auth = await googleUser!.authentication;
+    final url =
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events/${widget.eventId}';
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${auth.accessToken}',
+      },
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final fetchedStart = DateTime.parse(data['start']['dateTime']);
+      final fetchedEnd = DateTime.parse(data['end']['dateTime']);
+      setState(() {
+        _startTime = fetchedStart;
+        _endTime = fetchedEnd;
+      });
+    }
+  }
+
+  Future<void> _updateGoogleCalendarEvent() async {
+    GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
+    if (googleUser == null) {
+      googleUser = await _googleSignIn.signIn();
+    }
+    final auth = await googleUser!.authentication;
+    final Map<String, dynamic> eventPayload = {
+      'summary': _titleController.text,
+      'location': _locationController.text,
+      'description': _descriptionController.text,
+      'start': {
+        'dateTime': _startTime!.toIso8601String(),
+        'timeZone': DateTime.now().timeZoneName,
+      },
+      'end': {
+        'dateTime': _endTime!.toIso8601String(),
+        'timeZone': DateTime.now().timeZoneName,
+      },
+    };
+    final url =
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events/${widget.eventId}';
+    final response = await http.patch(
+      // changed from put to patch
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${auth.accessToken}',
+      },
+      body: jsonEncode(eventPayload),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(
+          "Failed to update event to Google Calendar: ${response.body}");
+    }
   }
 
   Future<void> _saveEvent() async {
@@ -47,6 +121,15 @@ class _EditEventPageState extends State<EditEventPage> {
         _endTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all required fields")),
+      );
+      return;
+    }
+
+    try {
+      await _updateGoogleCalendarEvent();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to update Google Calendar: $e")),
       );
       return;
     }
@@ -67,7 +150,11 @@ class _EditEventPageState extends State<EditEventPage> {
           .doc(currentUser.email)
           .collection('events')
           .doc(widget.eventId)
-          .set(eventData);
+          .set(
+              eventData,
+              SetOptions(
+                  merge:
+                      true)); // merge updates so other fields remain unchanged
     }
 
     Navigator.of(context).pop(eventData);
@@ -110,47 +197,86 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
-  Future<void> _pickDate() async {
-    final initial = _startTime ?? DateTime.now();
-    final picked = await showDatePicker(
-        context: context,
-        initialDate: initial,
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2100));
-    if (picked != null) {
-      setState(() {
-        _startTime = DateTime(picked.year, picked.month, picked.day,
-            _startTime?.hour ?? 0, _startTime?.minute ?? 0);
-        _endTime = _startTime != null && _endTime != null
-            ? DateTime(picked.year, picked.month, picked.day, _endTime!.hour,
-                _endTime!.minute)
-            : _startTime;
-      });
-    }
+  Future<void> _pickStartTimeDropdown() async {
+    if (_startTime == null) return;
+    int selectedHour = _startTime!.hour;
+    int selectedMinute = _startTime!.minute;
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Select Start Time"),
+              content: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      value: selectedHour,
+                      items: List.generate(24, (index) => index)
+                          .map((e) =>
+                              DropdownMenuItem(value: e, child: Text("$e")))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setStateDialog(() {
+                            selectedHour = value;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      value: selectedMinute,
+                      items: List.generate(60, (index) => index)
+                          .map((e) =>
+                              DropdownMenuItem(value: e, child: Text("$e")))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setStateDialog(() {
+                            selectedMinute = value;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Cancel")),
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("OK")),
+              ],
+            );
+          },
+        );
+      },
+    );
+    // If there was no change, keep the same start time.
+    if (selectedHour == _startTime!.hour &&
+        selectedMinute == _startTime!.minute) return;
+    final duration =
+        _endTime != null ? _endTime!.difference(_startTime!) : Duration.zero;
+    setState(() {
+      _startTime = DateTime(_startTime!.year, _startTime!.month,
+          _startTime!.day, selectedHour, selectedMinute);
+      _endTime = _startTime!.add(duration);
+    });
   }
 
-  Future<void> _pickTime() async {
-    final initialTime = _startTime != null
-        ? TimeOfDay.fromDateTime(_startTime!)
-        : TimeOfDay.now();
-    final picked =
-        await showTimePicker(context: context, initialTime: initialTime);
-    if (picked != null) {
-      setState(() {
-        final date = _startTime ?? DateTime.now();
-        _startTime = DateTime(
-            date.year, date.month, date.day, picked.hour, picked.minute);
-        if (_endTime != null) {
-          _endTime = DateTime(_endTime!.year, _endTime!.month, _endTime!.day,
-              picked.hour, picked.minute);
-        }
-      });
-    }
-  }
-
-  Future<void> _pickDuration() async {
-    int selectedHours = 0;
-    int selectedMinutes = 0;
+  Future<void> _pickDurationDropdown() async {
+    if (_startTime == null || _endTime == null) return;
+    final currentDuration = _endTime!.difference(_startTime!);
+    int selectedDurHour = currentDuration.inHours;
+    int selectedDurMinute = currentDuration.inMinutes % 60;
     await showDialog(
       context: context,
       builder: (context) {
@@ -158,80 +284,64 @@ class _EditEventPageState extends State<EditEventPage> {
           builder: (context, setStateDialog) {
             return AlertDialog(
               title: const Text("Select Duration"),
-              content: SizedBox(
-                height: 200,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        children: [
-                          const Text("Hours"),
-                          Expanded(
-                            child: ListWheelScrollView.useDelegate(
-                              itemExtent: 40,
-                              onSelectedItemChanged: (index) {
-                                setStateDialog(() {
-                                  selectedHours = index;
-                                });
-                              },
-                              childDelegate: ListWheelChildBuilderDelegate(
-                                builder: (context, index) {
-                                  if (index < 0 || index > 12) return null;
-                                  return Center(child: Text("$index"));
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+              content: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      value: selectedDurHour,
+                      items: List.generate(13, (index) => index)
+                          .map((e) =>
+                              DropdownMenuItem(value: e, child: Text("$e")))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setStateDialog(() {
+                            selectedDurHour = value;
+                          });
+                        }
+                      },
                     ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          const Text("Minutes"),
-                          Expanded(
-                            child: ListWheelScrollView.useDelegate(
-                              itemExtent: 40,
-                              onSelectedItemChanged: (index) {
-                                setStateDialog(() {
-                                  selectedMinutes = index;
-                                });
-                              },
-                              childDelegate: ListWheelChildBuilderDelegate(
-                                builder: (context, index) {
-                                  if (index < 0 || index > 59) return null;
-                                  return Center(child: Text("$index"));
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      value: selectedDurMinute,
+                      items: List.generate(60, (index) => index)
+                          .map((e) =>
+                              DropdownMenuItem(value: e, child: Text("$e")))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setStateDialog(() {
+                            selectedDurMinute = value;
+                          });
+                        }
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel"),
-                ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Cancel")),
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("OK"),
-                ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("OK")),
               ],
             );
           },
         );
       },
     );
-    if (_startTime != null) {
-      setState(() {
-        _endTime = _startTime!
-            .add(Duration(hours: selectedHours, minutes: selectedMinutes));
-      });
-    }
+    final newDuration =
+        Duration(hours: selectedDurHour, minutes: selectedDurMinute);
+    if (newDuration == currentDuration) return; // Unchanged duration.
+    setState(() {
+      _endTime = _startTime!.add(newDuration);
+    });
   }
 
   @override
@@ -307,40 +417,35 @@ class _EditEventPageState extends State<EditEventPage> {
                     children: [
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _pickDate,
+                          onPressed: _pickStartTimeDropdown,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12.0),
                           ),
-                          child: const Text("Date",
-                              style: TextStyle(fontSize: 18)),
+                          child: Text(
+                            _startTime != null
+                                ? "${_startTime!.toLocal().toString().substring(0, 16)}"
+                                : "Set Start Time",
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _pickTime,
+                          onPressed: _pickDurationDropdown,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12.0),
                           ),
-                          child: const Text("Time",
-                              style: TextStyle(fontSize: 18)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _pickDuration,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          child: Text(
+                            (_startTime != null && _endTime != null)
+                                ? "${_endTime!.difference(_startTime!).inHours}h ${_endTime!.difference(_startTime!).inMinutes % 60}m"
+                                : "Set Duration",
+                            style: const TextStyle(fontSize: 14),
                           ),
-                          child: const Text("Duration",
-                              style: TextStyle(fontSize: 18)),
                         ),
                       ),
                     ],
