@@ -31,9 +31,11 @@ class _AddEventPageState extends State<AddEventPage> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController();
-    _locationController = TextEditingController();
+    _titleController = TextEditingController(text: "(no title)");
+    _locationController = TextEditingController(text: "");
     _descriptionController = TextEditingController();
+    _startTime = DateTime.now().add(Duration(hours: 1));
+    _endTime = _startTime!.add(Duration(hours: 1));
   }
 
   Future<void> _pickContact() async {
@@ -93,14 +95,6 @@ class _AddEventPageState extends State<AddEventPage> {
   }
 
   Future<void> _saveEvent() async {
-    if (_titleController.text.isEmpty ||
-        _startTime == null ||
-        _endTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill all required fields")),
-      );
-      return;
-    }
     final eventData = {
       'subject': _titleController.text,
       'location': _locationController.text,

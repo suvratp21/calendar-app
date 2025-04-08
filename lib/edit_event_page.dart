@@ -344,6 +344,29 @@ class _EditEventPageState extends State<EditEventPage> {
     });
   }
 
+  Future<void> _pickStartDate() async {
+    if (_startTime == null) return;
+    final current = _startTime!;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null &&
+        (picked.year != current.year ||
+            picked.month != current.month ||
+            picked.day != current.day)) {
+      final duration =
+          _endTime != null ? _endTime!.difference(_startTime!) : Duration.zero;
+      setState(() {
+        _startTime = DateTime(picked.year, picked.month, picked.day,
+            current.hour, current.minute);
+        _endTime = _startTime!.add(duration);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -412,6 +435,27 @@ class _EditEventPageState extends State<EditEventPage> {
                     ),
                   ),
                   const Divider(color: Colors.black54, thickness: 1),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _pickStartDate,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          ),
+                          child: Text(
+                            _startTime != null
+                                ? "Date: ${_startTime!.toLocal().toString().substring(0, 10)}"
+                                : "Set Date",
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
