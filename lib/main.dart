@@ -13,6 +13,14 @@ import 'models.dart' as myModels;
 import 'notification_service.dart';
 import 'calendar_service.dart';
 
+final GoogleSignIn googleSignIn = GoogleSignIn(
+  scopes: [
+    'email',
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar',
+  ],
+);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();

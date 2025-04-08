@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class AddEventPage extends StatefulWidget {
   const AddEventPage({super.key});
@@ -8,6 +11,14 @@ class AddEventPage extends StatefulWidget {
   @override
   State<AddEventPage> createState() => _AddEventPageState();
 }
+
+final GoogleSignIn _googleSignIn = GoogleSignIn(
+  scopes: [
+    'email',
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar',
+  ],
+);
 
 class _AddEventPageState extends State<AddEventPage> {
   late TextEditingController _titleController;
@@ -45,6 +56,42 @@ class _AddEventPageState extends State<AddEventPage> {
     }
   }
 
+  Future<void> _saveGoogleCalendarEvent() async {
+    GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
+    if (googleUser == null) {
+      googleUser = await _googleSignIn.signIn();
+    }
+    final auth = await googleUser!.authentication;
+
+    final Map<String, dynamic> eventPayload = {
+      'summary': _titleController.text,
+      'location': _locationController.text,
+      'description': _descriptionController.text,
+      'start': {
+        'dateTime': _startTime!.toIso8601String(),
+        'timeZone': DateTime.now().timeZoneName,
+      },
+      'end': {
+        'dateTime': _endTime!.toIso8601String(),
+        'timeZone': DateTime.now().timeZoneName,
+      },
+    };
+    final url =
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${auth.accessToken}',
+      },
+      body: jsonEncode(eventPayload),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(
+          "Failed to add event to Google Calendar: ${response.body}");
+    }
+  }
+
   Future<void> _saveEvent() async {
     if (_titleController.text.isEmpty ||
         _startTime == null ||
@@ -63,9 +110,16 @@ class _AddEventPageState extends State<AddEventPage> {
       'members': _members,
     };
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Event successfully saved")),
-    );
+    try {
+      await _saveGoogleCalendarEvent();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Event successfully saved")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to save to Google Calendar: $e")),
+      );
+    }
     Navigator.of(context).pop(eventData);
   }
 
