@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
-import 'add_name_page.dart';
-import 'add_event_page.dart';
-import 'event_details_page.dart';
 import 'homepage.dart'; // Import the homepage file
-import 'models.dart' as myModels;
 import 'notification_service.dart';
-import 'calendar_service.dart';
 
 final GoogleSignIn googleSignIn = GoogleSignIn(
   scopes: [
@@ -34,9 +27,16 @@ void main() async {
         channelDescription: 'Notification channel for basic tests',
         defaultColor: Colors.deepPurple,
         ledColor: Colors.white,
+        importance: NotificationImportance.High,
+        channelShowBadge: true,
       )
     ],
   );
+
+  // Request notification permissions
+  if (await Permission.notification.isDenied) {
+    await Permission.notification.request();
+  }
 
   AwesomeNotifications().setListeners(
     onActionReceivedMethod: onNotificationAction,

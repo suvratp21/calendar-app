@@ -24,7 +24,7 @@ class _AddEventPageState extends State<AddEventPage> {
   late TextEditingController _titleController;
   late TextEditingController _locationController;
   late TextEditingController _descriptionController;
-  List<String> _members = [];
+  final List<String> _members = [];
   DateTime? _startTime;
   DateTime? _endTime;
 
@@ -60,9 +60,7 @@ class _AddEventPageState extends State<AddEventPage> {
 
   Future<void> _saveGoogleCalendarEvent() async {
     GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
-    if (googleUser == null) {
-      googleUser = await _googleSignIn.signIn();
-    }
+    googleUser ??= await _googleSignIn.signIn();
     final auth = await googleUser!.authentication;
 
     final Map<String, dynamic> eventPayload = {

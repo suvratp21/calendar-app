@@ -55,9 +55,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
   Future<void> _fetchGoogleCalendarDuration() async {
     GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
-    if (googleUser == null) {
-      googleUser = await _googleSignIn.signIn();
-    }
+    googleUser ??= await _googleSignIn.signIn();
     final auth = await googleUser!.authentication;
     final url =
         'https://www.googleapis.com/calendar/v3/calendars/primary/events/${widget.eventId}';
@@ -81,9 +79,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
   Future<void> _updateGoogleCalendarEvent() async {
     GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
-    if (googleUser == null) {
-      googleUser = await _googleSignIn.signIn();
-    }
+    googleUser ??= await _googleSignIn.signIn();
     final auth = await googleUser!.authentication;
     final Map<String, dynamic> eventPayload = {
       'summary': _titleController.text,
@@ -262,7 +258,9 @@ class _EditEventPageState extends State<EditEventPage> {
     );
     // If there was no change, keep the same start time.
     if (selectedHour == _startTime!.hour &&
-        selectedMinute == _startTime!.minute) return;
+        selectedMinute == _startTime!.minute) {
+      return;
+    }
     final duration =
         _endTime != null ? _endTime!.difference(_startTime!) : Duration.zero;
     setState(() {
@@ -469,7 +467,7 @@ class _EditEventPageState extends State<EditEventPage> {
                           ),
                           child: Text(
                             _startTime != null
-                                ? "${_startTime!.toLocal().toString().substring(0, 16)}"
+                                ? _startTime!.toLocal().toString().substring(0, 16)
                                 : "Set Start Time",
                             style: const TextStyle(fontSize: 14),
                           ),

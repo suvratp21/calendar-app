@@ -25,7 +25,7 @@ class _AuthScreenState extends State<AuthScreen> {
   DateTime _selectedDate = DateTime.now();
   String? _accessToken;
   myModels.AppointmentDataSource? _calendarDataSource;
-  bool _isUpdatingCalendar = false; // added flag
+  final bool _isUpdatingCalendar = false; // added flag
   final CalendarController _calendarController =
       CalendarController(); // new controller
 
@@ -311,14 +311,33 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddEventPage()),
-          );
-        },
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddEventPage()),
+              );
+            },
+            child: const Icon(Icons.add),
+          ),
+          const SizedBox(height: 16), // Spacing between FABs
+          FloatingActionButton(
+            onPressed: () {
+              AwesomeNotifications().createNotification(
+                content: NotificationContent(
+                  id: 1,
+                  channelKey: 'basic_channel',
+                  title: 'Hello!',
+                  body: 'Hello World!',
+                ),
+              );
+            },
+            child: const Icon(Icons.notifications),
+          ),
+        ],
       ),
     );
   }
