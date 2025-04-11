@@ -4,6 +4,8 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart'; // added import
+import 'package:cloud_firestore/cloud_firestore.dart'; // added import
 
 class AddEventPage extends StatefulWidget {
   const AddEventPage({super.key});
@@ -41,6 +43,7 @@ class _AddEventPageState extends State<AddEventPage> {
   Future<void> _pickContact() async {
     final permissionStatus = await Permission.contacts.request();
     if (!permissionStatus.isGranted) return;
+
     try {
       final contact = await FlutterContacts.openExternalPick();
       if (contact == null) return;
@@ -76,6 +79,7 @@ class _AddEventPageState extends State<AddEventPage> {
         'timeZone': DateTime.now().timeZoneName,
       },
     };
+
     final url =
         'https://www.googleapis.com/calendar/v3/calendars/primary/events';
     final response = await http.post(
@@ -86,6 +90,7 @@ class _AddEventPageState extends State<AddEventPage> {
       },
       body: jsonEncode(eventPayload),
     );
+
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception(
           "Failed to add event to Google Calendar: ${response.body}");
@@ -93,26 +98,37 @@ class _AddEventPageState extends State<AddEventPage> {
   }
 
   Future<void> _saveEvent() async {
+    // Build event data without members for saving in Firebase.
     final eventData = {
       'subject': _titleController.text,
       'location': _locationController.text,
       'description': _descriptionController.text,
       'startTime': _startTime,
       'endTime': _endTime,
-      'members': _members,
     };
 
     try {
+      // First, save event in Google Calendar API (members not included).
       await _saveGoogleCalendarEvent();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Event successfully saved")),
       );
+      // Save event data to Firebase without members.
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null && currentUser.email != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.email)
+            .collection('events')
+            .add(eventData);
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to save to Google Calendar: $e")),
       );
     }
-    Navigator.of(context).pop(eventData);
+    // Pass eventData with members for display in the app.
+    Navigator.of(context).pop({...eventData, 'members': _members});
   }
 
   Future<void> _pickDate() async {
@@ -332,8 +348,12 @@ class _AddEventPageState extends State<AddEventPage> {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12.0),
                           ),
-                          child: const Text("Date",
-                              style: TextStyle(fontSize: 18)),
+                          child: Text(
+                            _startTime != null
+                                ? "${_startTime!.year}-${_startTime!.month.toString().padLeft(2, '0')}-${_startTime!.day.toString().padLeft(2, '0')}"
+                                : "Date",
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -345,8 +365,12 @@ class _AddEventPageState extends State<AddEventPage> {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12.0),
                           ),
-                          child: const Text("Time",
-                              style: TextStyle(fontSize: 18)),
+                          child: Text(
+                            _startTime != null
+                                ? "${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}"
+                                : "Time",
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -358,8 +382,12 @@ class _AddEventPageState extends State<AddEventPage> {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12.0),
                           ),
-                          child: const Text("Duration",
-                              style: TextStyle(fontSize: 18)),
+                          child: Text(
+                            _startTime != null && _endTime != null
+                                ? "${_endTime!.difference(_startTime!).inHours}h ${_endTime!.difference(_startTime!).inMinutes % 60}m"
+                                : "Duration",
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
                       ),
                     ],
@@ -432,6 +460,11 @@ class _AddEventPageState extends State<AddEventPage> {
             ),
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'uniqueAddEventFAB', // ensure this tag is unique app-wide
+        onPressed: _saveEvent,
+        child: const Icon(Icons.save),
       ),
     );
   }
