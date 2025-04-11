@@ -4,15 +4,8 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart'; // added import
-import 'package:cloud_firestore/cloud_firestore.dart'; // added import
-
-class AddEventPage extends StatefulWidget {
-  const AddEventPage({super.key});
-
-  @override
-  State<AddEventPage> createState() => _AddEventPageState();
-}
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 final GoogleSignIn _googleSignIn = GoogleSignIn(
   scopes: [
@@ -21,6 +14,13 @@ final GoogleSignIn _googleSignIn = GoogleSignIn(
     'https://www.googleapis.com/auth/calendar',
   ],
 );
+
+class AddEventPage extends StatefulWidget {
+  const AddEventPage({super.key});
+
+  @override
+  State<AddEventPage> createState() => _AddEventPageState();
+}
 
 class _AddEventPageState extends State<AddEventPage> {
   late TextEditingController _titleController;
@@ -43,7 +43,6 @@ class _AddEventPageState extends State<AddEventPage> {
   Future<void> _pickContact() async {
     final permissionStatus = await Permission.contacts.request();
     if (!permissionStatus.isGranted) return;
-
     try {
       final contact = await FlutterContacts.openExternalPick();
       if (contact == null) return;
@@ -55,13 +54,13 @@ class _AddEventPageState extends State<AddEventPage> {
         setState(() => _members.add(displayText));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     }
   }
 
-  Future<void> _saveGoogleCalendarEvent() async {
+  // Modified _saveGoogleCalendarEvent: returns event id
+  Future<String> _saveGoogleCalendarEvent() async {
     GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
     googleUser ??= await _googleSignIn.signIn();
     final auth = await googleUser!.authentication;
@@ -95,40 +94,81 @@ class _AddEventPageState extends State<AddEventPage> {
       throw Exception(
           "Failed to add event to Google Calendar: ${response.body}");
     }
+    final data = jsonDecode(response.body);
+    return data['id'];
   }
 
-  Future<void> _saveEvent() async {
-    // Build event data without members for saving in Firebase.
-    final eventData = {
-      'subject': _titleController.text,
-      'location': _locationController.text,
-      'description': _descriptionController.text,
-      'startTime': _startTime,
-      'endTime': _endTime,
+  // New function to update event members using event id
+  Future<void> _updateGoogleCalendarEventMembers(String eventId) async {
+    GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
+    googleUser ??= await _googleSignIn.signIn();
+    final auth = await googleUser!.authentication;
+    final updateUrl =
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events/$eventId';
+    final updatePayload = {
+      'extendedProperties': {
+        'private': {'members': _members.join(',')}
+      }
     };
+    final updateResponse = await http.patch(
+      Uri.parse(updateUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${auth.accessToken}',
+      },
+      body: jsonEncode(updatePayload),
+    );
+    if (updateResponse.statusCode != 200 && updateResponse.statusCode != 201) {
+      throw Exception(
+          "Failed to update event with members: ${updateResponse.body}");
+    }
+  }
 
+  // Updated _saveEvent using the new functions
+  Future<void> _saveEvent() async {
+    if (_titleController.text.isEmpty ||
+        _startTime == null ||
+        _endTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill all required fields")),
+      );
+      return;
+    }
     try {
-      // First, save event in Google Calendar API (members not included).
-      await _saveGoogleCalendarEvent();
+      final eventId = await _saveGoogleCalendarEvent();
+      await _updateGoogleCalendarEventMembers(eventId);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Event successfully saved")),
       );
-      // Save event data to Firebase without members.
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null && currentUser.email != null) {
         await FirebaseFirestore.instance
             .collection('users')
             .doc(currentUser.email)
             .collection('events')
-            .add(eventData);
+            .doc(eventId) // use the unique event id
+            .set({
+          'subject': _titleController.text,
+          'location': _locationController.text,
+          'description': _descriptionController.text,
+          'startTime': _startTime,
+          'endTime': _endTime,
+          'members': _members,
+        }, SetOptions(merge: true));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to save to Google Calendar: $e")),
       );
     }
-    // Pass eventData with members for display in the app.
-    Navigator.of(context).pop({...eventData, 'members': _members});
+    Navigator.of(context).pop({
+      'subject': _titleController.text,
+      'location': _locationController.text,
+      'description': _descriptionController.text,
+      'startTime': _startTime,
+      'endTime': _endTime,
+      'members': _members,
+    });
   }
 
   Future<void> _pickDate() async {
@@ -142,10 +182,8 @@ class _AddEventPageState extends State<AddEventPage> {
     if (picked != null) {
       if (picked.year == current.year &&
           picked.month == current.month &&
-          picked.day == current.day) {
-        return; // No change in date.
-      }
-      final duration = (_startTime != null && _endTime != null)
+          picked.day == current.day) return;
+      final duration = _startTime != null && _endTime != null
           ? _endTime!.difference(_startTime!)
           : Duration.zero;
       setState(() {
@@ -163,10 +201,8 @@ class _AddEventPageState extends State<AddEventPage> {
         await showTimePicker(context: context, initialTime: currentTime);
     if (picked != null) {
       if (picked.hour == currentTime.hour &&
-          picked.minute == currentTime.minute) {
-        return; // No change in time.
-      }
-      final duration = (_startTime != null && _endTime != null)
+          picked.minute == currentTime.minute) return;
+      final duration = _startTime != null && _endTime != null
           ? _endTime!.difference(_startTime!)
           : Duration.zero;
       setState(() {
@@ -247,13 +283,11 @@ class _AddEventPageState extends State<AddEventPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel"),
-                ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Cancel")),
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("OK"),
-                ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("OK")),
               ],
             );
           },
@@ -264,7 +298,7 @@ class _AddEventPageState extends State<AddEventPage> {
       final currentDuration = _endTime!.difference(_startTime!);
       final newDuration =
           Duration(hours: selectedHours, minutes: selectedMinutes);
-      if (currentDuration == newDuration) return; // Unchanged duration.
+      if (currentDuration == newDuration) return;
       setState(() {
         _endTime = _startTime!.add(newDuration);
       });
@@ -280,9 +314,8 @@ class _AddEventPageState extends State<AddEventPage> {
         foregroundColor: Colors.black,
         actions: [
           IconButton(
-            icon: const Icon(Icons.save, color: Colors.black),
-            onPressed: _saveEvent,
-          ),
+              icon: const Icon(Icons.save, color: Colors.black),
+              onPressed: _saveEvent),
         ],
       ),
       body: Padding(
@@ -432,10 +465,10 @@ class _AddEventPageState extends State<AddEventPage> {
                         child: ElevatedButton(
                           onPressed: _saveEvent,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          ),
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12.0)),
                           child: const Text("Save",
                               style: TextStyle(fontSize: 18)),
                         ),
@@ -445,10 +478,10 @@ class _AddEventPageState extends State<AddEventPage> {
                         child: ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          ),
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12.0)),
                           child: const Text("Cancel",
                               style: TextStyle(fontSize: 18)),
                         ),
@@ -462,7 +495,7 @@ class _AddEventPageState extends State<AddEventPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        heroTag: 'uniqueAddEventFAB', // ensure this tag is unique app-wide
+        heroTag: UniqueKey(),
         onPressed: _saveEvent,
         child: const Icon(Icons.save),
       ),
