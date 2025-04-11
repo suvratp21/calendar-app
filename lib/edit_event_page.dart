@@ -146,17 +146,43 @@ class _EditEventPageState extends State<EditEventPage> {
           .doc(currentUser.email)
           .collection('events')
           .doc(widget.eventId)
-          .set(
-              eventData,
-              SetOptions(
-                  merge:
-                      true)); // merge updates so other fields remain unchanged
+          .set(eventData, SetOptions(merge: true));
     }
-
-    Navigator.of(context).pop(eventData);
+    // Navigate to homescreen and refresh
+    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
 
+  // New function to delete event from Google Calendar API
+  Future<void> _deleteGoogleCalendarEvent() async {
+    GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
+    googleUser ??= await _googleSignIn.signIn();
+    final auth = await googleUser!.authentication;
+    final url =
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events/${widget.eventId}';
+    final response = await http.delete(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${auth.accessToken}',
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(
+          "Failed to delete event from Google Calendar: ${response.body}");
+    }
+  }
+
+  // Updated _deleteEvent function to delete from both Google Calendar and Firebase
   Future<void> _deleteEvent() async {
+    // Delete event from Google Calendar API
+    try {
+      await _deleteGoogleCalendarEvent();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Failed to delete event from Google Calendar: $e")));
+      return;
+    }
+    // Delete from Firebase Firestore (if exists)
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser != null && currentUser.email != null) {
       await FirebaseFirestore.instance
@@ -166,7 +192,8 @@ class _EditEventPageState extends State<EditEventPage> {
           .doc(widget.eventId)
           .delete();
     }
-    Navigator.of(context).pop({'delete': true});
+    // Navigate to homescreen and refresh
+    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
 
   Future<void> _pickContact() async {
@@ -509,7 +536,9 @@ class _EditEventPageState extends State<EditEventPage> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(),
+                          // Updated cancel button: navigate to homescreen and refresh
+                          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                              context, '/', (route) => false),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,
                             foregroundColor: Colors.white,
