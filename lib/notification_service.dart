@@ -5,27 +5,40 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models.dart';
 
 Future<void> sendSms(String message, List<String> members) async {
-  print('DEBUG: Preparing to send SMS to members: $members');
+  print('DEBUG: Preparing to send message to members: $members');
   if (members.isEmpty) {
-    print('DEBUG: No members to send SMS to.');
+    print('DEBUG: No members to send message to.');
     return;
   }
   for (String member in members) {
     final String encodedMessage = Uri.encodeComponent(message);
+    final Uri whatsappUri =
+        Uri.parse('whatsapp://send?phone=$member&text=$encodedMessage');
     final Uri smsUri = Uri.parse('sms:$member?body=$encodedMessage');
     try {
-      print('DEBUG: Attempting to send SMS to $member with URI: $smsUri');
-      if (await canLaunchUrl(smsUri)) {
-        await launchUrl(smsUri, mode: LaunchMode.externalApplication);
-        print('DEBUG: SMS sent successfully to $member.');
+      print('DEBUG: Checking if WhatsApp is available for $member.');
+      final bool isWhatsappAvailable = await canLaunchUrl(whatsappUri);
+      print(isWhatsappAvailable);
+      if (isWhatsappAvailable) {
+        print(
+            'DEBUG: Sending WhatsApp message to $member with URI: $whatsappUri');
+        await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+        print('DEBUG: WhatsApp message sent successfully to $member.');
       } else {
-        print('DEBUG: Could not send SMS to $member. URI: $smsUri');
+        print(
+            'DEBUG: WhatsApp not available for $member. Launching SMS directly.');
+        if (await canLaunchUrl(smsUri)) {
+          await launchUrl(smsUri, mode: LaunchMode.externalApplication);
+          print('DEBUG: SMS sent successfully to $member.');
+        } else {
+          print('DEBUG: Could not send SMS to $member. URI: $smsUri');
+        }
       }
     } catch (e) {
-      print('DEBUG: Error while sending SMS to $member: $e');
+      print('DEBUG: Error while sending message to $member: $e');
     }
   }
-  print('DEBUG: Finished sending SMS to all members.');
+  print('DEBUG: Finished sending messages to all members.');
 }
 
 Future<void> scheduleNotification(Appointment appointment) async {
