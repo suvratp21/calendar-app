@@ -137,6 +137,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_accessToken != null) {
       fetchCalendarEvents(_accessToken!, _selectedDate).then((appointments) {
         setState(() {
+          // appointments now include attendees along with other details
           _calendarDataSource = myModels.AppointmentDataSource(appointments);
         });
       });
@@ -287,6 +288,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                 builder: (context) => EventDetailsPage(
                                   appointment: appointment,
                                   eventId: appointment.eventId,
+                                  attendees:
+                                      appointment.attendees, // new parameter
                                 ),
                               ),
                             ).then((updatedAppointment) {
@@ -315,6 +318,7 @@ class _AuthScreenState extends State<AuthScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
+            heroTag: "addEventFab", // unique hero tag for Add Event
             onPressed: () {
               Navigator.push(
                 context,
@@ -325,6 +329,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           const SizedBox(height: 16), // Spacing between FABs
           FloatingActionButton(
+            heroTag: "notifyFab", // unique hero tag for Notification
             onPressed: () {
               AwesomeNotifications().createNotification(
                 content: NotificationContent(

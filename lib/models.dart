@@ -8,12 +8,14 @@ class Appointment {
     required this.subject,
     required this.color,
     required this.eventId,
+    this.attendees, // new parameter
   });
   DateTime startTime;
   DateTime endTime;
   String subject;
   final Color color;
   final String eventId;
+  final List<String>? attendees; // new field
 }
 
 class AppointmentDataSource extends CalendarDataSource {

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'models.dart';
 import 'notification_service.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 Future<List<Appointment>> fetchCalendarEvents(
     String accessToken, DateTime date) async {
@@ -24,6 +25,19 @@ Future<List<Appointment>> fetchCalendarEvents(
           String? startStr =
               event['start']['dateTime'] ?? event['start']['date'];
           String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
+          List<String>? attendees;
+          if (event["attendees"] != null) {
+            attendees = (event["attendees"] as List)
+                .map((att) => att["email"].toString())
+                .toList();
+            // Remove own email from attendees list.
+            String? ownEmail = FirebaseAuth.instance.currentUser?.email;
+            if (ownEmail != null) {
+              attendees =
+                  attendees.where((email) => email != ownEmail).toList();
+            }
+            print(attendees);
+          }
           if (startStr != null) {
             DateTime startTime = DateTime.parse(startStr).toLocal();
             DateTime endTime = endStr != null
@@ -35,6 +49,7 @@ Future<List<Appointment>> fetchCalendarEvents(
               subject: event['summary'] ?? 'No Title',
               color: Colors.blue,
               eventId: event['id'] ?? '',
+              attendees: attendees,
             );
             appointments.add(appt);
             await scheduleNotification(appt);

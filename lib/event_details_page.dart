@@ -8,11 +8,13 @@ import 'models.dart' as myModels; // use alias to avoid conflict
 class EventDetailsPage extends StatefulWidget {
   final myModels.Appointment appointment; // updated type with alias
   final String eventId; // Unique event ID for Firebase
+  final List<String>? attendees; // new field
 
   const EventDetailsPage({
     super.key,
     required this.appointment,
     required this.eventId,
+    this.attendees, // new parameter
   });
 
   @override
@@ -177,6 +179,43 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                           padding: EdgeInsets.symmetric(horizontal: 8.0),
                           child: Text(
                             'No members added.',
+                            style:
+                                TextStyle(fontSize: 16, color: Colors.black87),
+                          ),
+                        ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.black54, thickness: 1),
+                  const SizedBox(height: 10),
+                  // Attendees Section
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
+                    child: Text(
+                      'Attendees:',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  widget.attendees != null && widget.attendees!.isNotEmpty
+                      ? Column(
+                          children: widget.attendees!.map((attendee) {
+                            return ListTile(
+                              leading:
+                                  const Icon(Icons.people, color: Colors.black),
+                              title: Text(
+                                attendee,
+                                style: const TextStyle(
+                                    fontSize: 16, color: Colors.black),
+                              ),
+                            );
+                          }).toList(),
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Text(
+                            'No attendees available.',
                             style:
                                 TextStyle(fontSize: 16, color: Colors.black87),
                           ),
