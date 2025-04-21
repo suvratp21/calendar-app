@@ -148,28 +148,14 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Calendar'),
+        title: const Text('Smart Calendar'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.black),
             onSelected: (value) {
-              if (value == 'add_name') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AddNamePage(
-                        user: user, initialName: _nameController.text),
-                  ),
-                ).then((result) {
-                  if (result != null) {
-                    setState(() {
-                      _nameController.text = result;
-                    });
-                  }
-                });
-              } else if (value == 'refresh') {
+              if (value == 'refresh') {
                 _fetchEvents();
               } else if (value == 'add_event') {
                 Navigator.push(
@@ -202,10 +188,6 @@ class _AuthScreenState extends State<AuthScreen> {
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(
-                  value: 'add_name',
-                  child:
-                      Text('Add Name', style: TextStyle(color: Colors.black))),
               PopupMenuItem(
                   value: 'refresh',
                   child:

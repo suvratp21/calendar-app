@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models.dart';
+import 'package:flutter/foundation.dart';
 
 Future<void> sendSms(String message, List<String> members) async {
   print('DEBUG: Preparing to send message to members: $members');
@@ -128,5 +129,31 @@ Future<void> onNotificationAction(ReceivedAction receivedAction) async {
     default:
       print(
           'Unhandled notification action: ${receivedAction.buttonKeyPressed}');
+  }
+}
+
+class NotificationService {
+  static int _defaultNotificationTime = 10; // Default to 10 minutes
+
+  static void updateDefaultNotificationTime(int minutes) {
+    _defaultNotificationTime = minutes;
+  }
+
+  static Future<void> scheduleEventNotification(
+      String title, DateTime eventTime) async {
+    final notificationTime = eventTime.subtract(
+      Duration(minutes: _defaultNotificationTime),
+    );
+    // Schedule the notification
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: UniqueKey().hashCode,
+        channelKey: 'basic_channel',
+        title: title,
+        body: 'Your event is coming up!',
+        notificationLayout: NotificationLayout.Default,
+      ),
+      schedule: NotificationCalendar.fromDate(date: notificationTime),
+    );
   }
 }
