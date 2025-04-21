@@ -77,6 +77,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   Widget build(BuildContext context) {
     final Duration duration =
         widget.appointment.endTime.difference(widget.appointment.startTime);
+    final List<String> attendees =
+        widget.attendees ?? widget.appointment.attendees ?? [];
 
     return Scaffold(
       appBar: AppBar(
@@ -198,9 +200,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                       ),
                     ),
                   ),
-                  widget.attendees != null && widget.attendees!.isNotEmpty
+                  attendees.isNotEmpty
                       ? Column(
-                          children: widget.attendees!.map((attendee) {
+                          children: attendees.map((attendee) {
                             return ListTile(
                               leading:
                                   const Icon(Icons.people, color: Colors.black),
