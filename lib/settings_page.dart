@@ -18,10 +18,41 @@ class NotificationService {
 class _SettingsPageState extends State<SettingsPage> {
   int _notificationMinutes = 10; // default value
 
+  // Add controllers and variables for default messages
+  final TextEditingController _runningLateController = TextEditingController();
+  final TextEditingController _postponeController = TextEditingController();
+  String _defaultRunningLate = 'Regarding "{event}": I will be late.';
+  String _defaultPostpone = 'Regarding "{event}": The event is postponed.';
+
   @override
   void initState() {
     super.initState();
     _loadNotificationTime(); // Load saved notification time on initialization
+    _loadDefaultMessages(); // Load saved default messages
+  }
+
+  // Load default messages from SharedPreferences
+  Future<void> _loadDefaultMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _defaultRunningLate = prefs.getString('defaultRunningLate') ??
+          'Regarding "{event}": I will be late.';
+      _defaultPostpone = prefs.getString('defaultPostpone') ??
+          'Regarding "{event}": The event is postponed.';
+      _runningLateController.text = _defaultRunningLate;
+      _postponeController.text = _defaultPostpone;
+    });
+  }
+
+  // Save default messages to SharedPreferences
+  Future<void> _saveDefaultMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('defaultRunningLate', _runningLateController.text);
+    await prefs.setString('defaultPostpone', _postponeController.text);
+    setState(() {
+      _defaultRunningLate = _runningLateController.text;
+      _defaultPostpone = _postponeController.text;
+    });
   }
 
   Future<void> _loadNotificationTime() async {
@@ -168,37 +199,84 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 20),
-          ListTile(
-            title: Row(
-              children: [
-                const Text(
-                  "Notification Time",
-                  style: TextStyle(fontSize: 18, color: Colors.black),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            ListTile(
+              title: Row(
+                children: [
+                  const Text(
+                    "Notification Time",
+                    style: TextStyle(fontSize: 18, color: Colors.black),
                   ),
-                  child: Text(
-                    notificationTimeLabel,
-                    style: const TextStyle(fontSize: 15, color: Colors.blue),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      notificationTimeLabel,
+                      style: const TextStyle(fontSize: 15, color: Colors.blue),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              onTap: () => _showNotificationTimePicker(context),
+              trailing: const Icon(Icons.arrow_drop_down),
             ),
-            // Remove subtitle, since time is now adjacent to title
-            onTap: () => _showNotificationTimePicker(context),
-            trailing: const Icon(Icons.arrow_drop_down),
-          ),
-        ],
+            const Divider(height: 32),
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _runningLateController,
+                    decoration: const InputDecoration(
+                      labelText: 'Running Late Message',
+                    ),
+                    onChanged: (val) => _saveDefaultMessages(),
+                    minLines: 1,
+                    maxLines: null,
+                    textInputAction: TextInputAction.newline,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _postponeController,
+                    decoration: const InputDecoration(
+                      labelText: 'Postpone Message',
+                      helperText: 'Use {event} using event name.',
+                    ),
+                    onChanged: (val) => _saveDefaultMessages(),
+                    minLines: 1,
+                    maxLines: null,
+                    textInputAction: TextInputAction.newline,
+                  ),
+                  const SizedBox(height: 12),
+                  // Optionally, you can remove the manual save button:
+                  // ElevatedButton(
+                  //   onPressed: _saveDefaultMessages,
+                  //   child: const Text('Save Messages'),
+                  // ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _runningLateController.dispose();
+    _postponeController.dispose();
+    super.dispose();
   }
 }

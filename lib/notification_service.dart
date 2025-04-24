@@ -166,6 +166,25 @@ Future<void> scheduleNotification(Appointment appointment) async {
   }
 }
 
+// Fetch the user-customized message from SharedPreferences and replace {event}
+Future<String> getEventActionMessage(String eventTitle, String action) async {
+  final prefs = await SharedPreferences.getInstance();
+  String template;
+  switch (action) {
+    case 'RUNNING_LATE':
+      template = prefs.getString('defaultRunningLate') ??
+          'Regarding "{event}": I will be late.';
+      break;
+    case 'POSTPONE':
+      template = prefs.getString('defaultPostpone') ??
+          'Regarding "{event}": The event is postponed.';
+      break;
+    default:
+      template = '';
+  }
+  return template.replaceAll('{event}', eventTitle);
+}
+
 @pragma('vm:entry-point')
 Future<void> onNotificationAction(ReceivedAction receivedAction) async {
   String? eventId = receivedAction.payload?['eventId'];
@@ -207,25 +226,23 @@ Future<void> onNotificationAction(ReceivedAction receivedAction) async {
     print('Error fetching event details: $e');
     return;
   }
+  // Use the same message for all channels
+  final eventTitle = receivedAction.title ?? '';
   switch (receivedAction.buttonKeyPressed) {
     case 'ON_TIME':
-      print('User selected "On Time" for event: ${receivedAction.title}');
+      print('User selected "On Time" for event: $eventTitle');
       break;
     case 'RUNNING_LATE':
-      print('User selected "Running Late" for event: ${receivedAction.title}');
-      await sendEmail('Regarding "${receivedAction.title}": I will be late.',
-          attendeesList);
-      await sendSms(
-          'Regarding "${receivedAction.title}": I will be late.', members);
+      print('User selected "Running Late" for event: $eventTitle');
+      final msg = await getEventActionMessage(eventTitle, 'RUNNING_LATE');
+      await sendEmail(msg, attendeesList);
+      await sendSms(msg, members);
       break;
     case 'POSTPONE':
-      print('User selected "Postpone" for event: ${receivedAction.title}');
-      await sendEmail(
-          'Regarding "${receivedAction.title}": The event is postponed.',
-          attendeesList);
-      await sendSms(
-          'Regarding "${receivedAction.title}": The event is postponed.',
-          members);
+      print('User selected "Postpone" for event: $eventTitle');
+      final msg = await getEventActionMessage(eventTitle, 'POSTPONE');
+      await sendEmail(msg, attendeesList);
+      await sendSms(msg, members);
       break;
     default:
       print(
