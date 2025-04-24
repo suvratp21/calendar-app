@@ -44,6 +44,19 @@ class _SettingsPageState extends State<SettingsPage> {
     NotificationService.updateDefaultNotificationTime(minutes);
   }
 
+  String get notificationTimeLabel {
+    if (_notificationMinutes < 60) {
+      return "${_notificationMinutes} minutes";
+    } else {
+      final hours = _notificationMinutes ~/ 60;
+      final minutes = _notificationMinutes % 60;
+      if (minutes == 0) {
+        return "$hours hour${hours > 1 ? 's' : ''}";
+      }
+      return "$hours hour${hours > 1 ? 's' : ''} $minutes minute${minutes > 1 ? 's' : ''}";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,8 +73,14 @@ class _SettingsPageState extends State<SettingsPage> {
               "Notification Time",
               style: TextStyle(fontSize: 18, color: Colors.black),
             ),
+            subtitle: Text(
+              "Currently set: $notificationTimeLabel",
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
             trailing: DropdownButton<int>(
-              value: _notificationMinutes,
+              value: [5, 10, 15, 30].contains(_notificationMinutes)
+                  ? _notificationMinutes
+                  : -1,
               items: const [
                 DropdownMenuItem(value: 5, child: Text("5 minutes")),
                 DropdownMenuItem(value: 10, child: Text("10 minutes")),

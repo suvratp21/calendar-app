@@ -4,6 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models.dart';
 import 'package:flutter/foundation.dart';
+import 'package:googleapis/gmail/v1.dart' as gmail;
+import 'package:googleapis_auth/auth_io.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> sendSms(String message, List<String> members) async {
   print('DEBUG: Preparing to send message to members: $members');
@@ -42,9 +48,88 @@ Future<void> sendSms(String message, List<String> members) async {
   print('DEBUG: Finished sending messages to all members.');
 }
 
+// Replace sendEmail implementation to use Gmail API
+Future<void> sendEmail(String message, List<String> recipients) async {
+  print('DEBUG: Preparing to send emails to recipients: $recipients');
+  if (recipients.isEmpty) {
+    print('DEBUG: No recipients to send email to.');
+    return;
+  }
+
+  final googleSignIn = GoogleSignIn(scopes: [
+    gmail.GmailApi.gmailSendScope,
+    'email',
+  ]);
+  GoogleSignInAccount? googleUser = googleSignIn.currentUser;
+  if (googleUser == null) {
+    print('DEBUG: No Google user signed in. Prompting user to sign in.');
+    try {
+      googleUser = await googleSignIn.signIn();
+      print('DEBUG: Google sign-in successful: ${googleUser?.email}');
+    } catch (e) {
+      print('DEBUG: Google sign-in failed: $e');
+      return;
+    }
+    if (googleUser == null) {
+      print('DEBUG: User cancelled Google sign-in.');
+      return;
+    }
+  } else {
+    print('DEBUG: Google user already signed in: ${googleUser.email}');
+  }
+
+  final googleAuth = await googleUser.authentication;
+  print('DEBUG: Access token: ${googleAuth.accessToken}');
+  if (googleAuth.accessToken == null) {
+    print('DEBUG: Google access token is null.');
+    return;
+  }
+
+  final authClient = authenticatedClient(
+    Client(),
+    AccessCredentials(
+      AccessToken('Bearer', googleAuth.accessToken!,
+          DateTime.now().add(const Duration(hours: 1))),
+      null,
+      [gmail.GmailApi.gmailSendScope, 'email'],
+    ),
+  );
+
+  final gmailApi = gmail.GmailApi(authClient);
+
+  for (String recipient in recipients) {
+    final subject = 'Event Notification';
+    final rawMessage = 'To: $recipient\r\n'
+        'Subject: $subject\r\n'
+        'Content-Type: text/plain; charset="UTF-8"\r\n'
+        '\r\n'
+        '$message';
+
+    final base64Message = base64UrlEncode(utf8.encode(rawMessage));
+    final gmail.Message gmailMessage = gmail.Message()..raw = base64Message;
+
+    try {
+      print('DEBUG: Sending email to $recipient...');
+      final response = await gmailApi.users.messages.send(gmailMessage, 'me');
+      print('DEBUG: Gmail API response: ${response.toJson()}');
+      print('DEBUG: Email sent successfully to $recipient via Gmail API.');
+    } catch (e, stack) {
+      print('DEBUG: Error sending email to $recipient via Gmail API: $e');
+      print('DEBUG: Stack trace: $stack');
+    }
+  }
+  print('DEBUG: Finished sending emails to all recipients.');
+}
+
+Future<int> getNotificationMinutes() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getInt('notificationMinutes') ?? 10;
+}
+
 Future<void> scheduleNotification(Appointment appointment) async {
+  final notificationMinutes = await getNotificationMinutes();
   final notificationTime =
-      appointment.startTime.subtract(const Duration(minutes: 10));
+      appointment.startTime.subtract(Duration(minutes: notificationMinutes));
   if (notificationTime.isAfter(DateTime.now())) {
     try {
       await AwesomeNotifications().createNotification(
@@ -52,9 +137,15 @@ Future<void> scheduleNotification(Appointment appointment) async {
           id: appointment.eventId.hashCode,
           channelKey: 'basic_channel',
           title: 'Upcoming Event',
-          body: 'Your event "${appointment.subject}" starts in 10 minutes.',
+          body:
+              'Your event "${appointment.subject}" starts in $notificationMinutes minutes.',
           notificationLayout: NotificationLayout.Default,
-          payload: {'eventId': appointment.eventId},
+          payload: {
+            'eventId': appointment.eventId,
+            'eventName': appointment.subject,
+            'attendees': appointment.attendees?.join(','),
+          },
+          color: appointment.color,
         ),
         actionButtons: [
           NotificationActionButton(key: 'ON_TIME', label: 'On Time'),
@@ -64,7 +155,7 @@ Future<void> scheduleNotification(Appointment appointment) async {
         schedule: NotificationCalendar.fromDate(date: notificationTime),
       );
       print(
-          'Notification scheduled for event: ${appointment.subject} at $notificationTime');
+          'Notification scheduled for event: ${appointment.subject} to ${appointment.attendees.toString()} at $notificationTime');
     } catch (e) {
       print(
           'Failed to schedule notification for event: ${appointment.subject}. Error: $e');
@@ -78,11 +169,13 @@ Future<void> scheduleNotification(Appointment appointment) async {
 @pragma('vm:entry-point')
 Future<void> onNotificationAction(ReceivedAction receivedAction) async {
   String? eventId = receivedAction.payload?['eventId'];
-  if (eventId == null) {
-    print('No event ID found in notification payload.');
-    return;
-  }
+  String? attendeesPayload = receivedAction.payload?['attendees'];
   List<String> members = [];
+  // Use attendees from notification payload for mailing
+  List<String> attendeesList =
+      attendeesPayload != null && attendeesPayload.isNotEmpty
+          ? attendeesPayload.split(',')
+          : [];
   try {
     final userEmail = FirebaseAuth.instance.currentUser?.email;
     if (userEmail == null) {
@@ -98,11 +191,14 @@ Future<void> onNotificationAction(ReceivedAction receivedAction) async {
     if (eventSnapshot.exists) {
       Map<String, dynamic>? eventData =
           eventSnapshot.data() as Map<String, dynamic>?;
-      if (eventData != null && eventData.containsKey('members')) {
-        members = List<String>.from(eventData['members']);
-        print('Fetched members for event $eventId: $members');
-      } else {
-        print('No members found for event $eventId.');
+      if (eventData != null) {
+        if (eventData.containsKey('members')) {
+          members = List<String>.from(eventData['members']);
+          print('Fetched members for event $eventId: $members');
+        } else {
+          print('No members found for event $eventId.');
+        }
+        // Do not overwrite attendeesList from payload
       }
     } else {
       print('Event with ID $eventId does not exist.');
@@ -117,11 +213,16 @@ Future<void> onNotificationAction(ReceivedAction receivedAction) async {
       break;
     case 'RUNNING_LATE':
       print('User selected "Running Late" for event: ${receivedAction.title}');
+      await sendEmail('Regarding "${receivedAction.title}": I will be late.',
+          attendeesList);
       await sendSms(
           'Regarding "${receivedAction.title}": I will be late.', members);
       break;
     case 'POSTPONE':
       print('User selected "Postpone" for event: ${receivedAction.title}');
+      await sendEmail(
+          'Regarding "${receivedAction.title}": The event is postponed.',
+          attendeesList);
       await sendSms(
           'Regarding "${receivedAction.title}": The event is postponed.',
           members);
