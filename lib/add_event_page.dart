@@ -6,7 +6,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'auth/permission/contact_permission.dart';
 
+// Google Sign-In instance with required scopes for calendar access
 final GoogleSignIn _googleSignIn = GoogleSignIn(
   scopes: [
     'email',
@@ -15,6 +17,7 @@ final GoogleSignIn _googleSignIn = GoogleSignIn(
   ],
 );
 
+// Page for adding a new event to Google Calendar and Firestore
 class AddEventPage extends StatefulWidget {
   const AddEventPage({super.key});
 
@@ -33,6 +36,7 @@ class _AddEventPageState extends State<AddEventPage> {
   @override
   void initState() {
     super.initState();
+    // Initialize controllers and default event times
     _titleController = TextEditingController(text: "(no title)");
     _locationController = TextEditingController(text: "");
     _descriptionController = TextEditingController();
@@ -40,9 +44,10 @@ class _AddEventPageState extends State<AddEventPage> {
     _endTime = _startTime!.add(Duration(hours: 1));
   }
 
+  // Pick a contact from the device and add to members
   Future<void> _pickContact() async {
-    final permissionStatus = await Permission.contacts.request();
-    if (!permissionStatus.isGranted) return;
+    final permissionGranted = await ContactPermission.request();
+    if (!permissionGranted) return;
     try {
       final contact = await FlutterContacts.openExternalPick();
       if (contact == null) return;
@@ -59,7 +64,7 @@ class _AddEventPageState extends State<AddEventPage> {
     }
   }
 
-  // Modified _saveGoogleCalendarEvent: returns event id
+  // Save the event to Google Calendar and return the event ID
   Future<String> _saveGoogleCalendarEvent() async {
     GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
     googleUser ??= await _googleSignIn.signIn();
@@ -98,7 +103,7 @@ class _AddEventPageState extends State<AddEventPage> {
     return data['id'];
   }
 
-  // New function to update event members using event id
+  // Update the event with members in Google Calendar
   Future<void> _updateGoogleCalendarEventMembers(String eventId) async {
     GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
     googleUser ??= await _googleSignIn.signIn();
@@ -124,7 +129,7 @@ class _AddEventPageState extends State<AddEventPage> {
     }
   }
 
-  // Updated _saveEvent using the new functions
+  // Save the event to both Google Calendar and Firestore
   Future<void> _saveEvent() async {
     if (_titleController.text.isEmpty ||
         _startTime == null ||
@@ -146,7 +151,7 @@ class _AddEventPageState extends State<AddEventPage> {
             .collection('users')
             .doc(currentUser.email)
             .collection('events')
-            .doc(eventId) // use the unique event id
+            .doc(eventId)
             .set({
           'subject': _titleController.text,
           'location': _locationController.text,
@@ -171,6 +176,7 @@ class _AddEventPageState extends State<AddEventPage> {
     });
   }
 
+  // Pick a date for the event
   Future<void> _pickDate() async {
     final current = _startTime ?? DateTime.now();
     final picked = await showDatePicker(
@@ -194,6 +200,7 @@ class _AddEventPageState extends State<AddEventPage> {
     }
   }
 
+  // Pick a time for the event
   Future<void> _pickTime() async {
     final current = _startTime ?? DateTime.now();
     final currentTime = TimeOfDay.fromDateTime(current);
@@ -213,6 +220,7 @@ class _AddEventPageState extends State<AddEventPage> {
     }
   }
 
+  // Pick a duration for the event
   Future<void> _pickDuration() async {
     int selectedHours = 0;
     int selectedMinutes = 0;
@@ -232,6 +240,7 @@ class _AddEventPageState extends State<AddEventPage> {
                 height: 200,
                 child: Row(
                   children: [
+                    // Hours picker
                     Expanded(
                       child: Column(
                         children: [
@@ -255,6 +264,7 @@ class _AddEventPageState extends State<AddEventPage> {
                         ],
                       ),
                     ),
+                    // Minutes picker
                     Expanded(
                       child: Column(
                         children: [
@@ -307,6 +317,7 @@ class _AddEventPageState extends State<AddEventPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Main UI for adding a new event
     return Scaffold(
       appBar: AppBar(
         title: const Text("Add Event"),
@@ -331,6 +342,7 @@ class _AddEventPageState extends State<AddEventPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Event title input
                   TextField(
                     controller: _titleController,
                     decoration: const InputDecoration(
@@ -341,6 +353,7 @@ class _AddEventPageState extends State<AddEventPage> {
                     style: const TextStyle(color: Colors.black),
                   ),
                   const SizedBox(height: 20),
+                  // Location input
                   TextField(
                     controller: _locationController,
                     decoration: const InputDecoration(
@@ -351,6 +364,7 @@ class _AddEventPageState extends State<AddEventPage> {
                     style: const TextStyle(color: Colors.black),
                   ),
                   const SizedBox(height: 20),
+                  // Description input
                   TextField(
                     controller: _descriptionController,
                     decoration: const InputDecoration(
@@ -362,6 +376,7 @@ class _AddEventPageState extends State<AddEventPage> {
                     maxLines: 3,
                   ),
                   const SizedBox(height: 20),
+                  // Event timing section
                   const Text(
                     'Event Timing',
                     style: TextStyle(
@@ -371,6 +386,7 @@ class _AddEventPageState extends State<AddEventPage> {
                   ),
                   const Divider(color: Colors.black54, thickness: 1),
                   const SizedBox(height: 10),
+                  // Row for picking date, time, and duration
                   Row(
                     children: [
                       Expanded(
@@ -426,6 +442,7 @@ class _AddEventPageState extends State<AddEventPage> {
                     ],
                   ),
                   const SizedBox(height: 20),
+                  // Members section
                   const Text(
                     'Members',
                     style: TextStyle(
@@ -449,6 +466,7 @@ class _AddEventPageState extends State<AddEventPage> {
                     ],
                   ),
                   const SizedBox(height: 10),
+                  // List of current members
                   ..._members.map((member) => ListTile(
                         title: Text(member,
                             style: const TextStyle(color: Colors.black)),

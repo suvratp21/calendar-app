@@ -48,7 +48,6 @@ Future<void> sendSms(String message, List<String> members) async {
   print('DEBUG: Finished sending messages to all members.');
 }
 
-// Replace sendEmail implementation to use Gmail API
 Future<void> sendEmail(String message, List<String> recipients) async {
   print('DEBUG: Preparing to send emails to recipients: $recipients');
   if (recipients.isEmpty) {
@@ -166,7 +165,6 @@ Future<void> scheduleNotification(Appointment appointment) async {
   }
 }
 
-// Fetch the user-customized message from SharedPreferences and replace {event}
 Future<String> getEventActionMessage(String eventTitle, String action) async {
   final prefs = await SharedPreferences.getInstance();
   String template;
@@ -190,7 +188,6 @@ Future<void> onNotificationAction(ReceivedAction receivedAction) async {
   String? eventId = receivedAction.payload?['eventId'];
   String? attendeesPayload = receivedAction.payload?['attendees'];
   List<String> members = [];
-  // Use attendees from notification payload for mailing
   List<String> attendeesList =
       attendeesPayload != null && attendeesPayload.isNotEmpty
           ? attendeesPayload.split(',')
@@ -217,7 +214,6 @@ Future<void> onNotificationAction(ReceivedAction receivedAction) async {
         } else {
           print('No members found for event $eventId.');
         }
-        // Do not overwrite attendeesList from payload
       }
     } else {
       print('Event with ID $eventId does not exist.');
@@ -226,7 +222,6 @@ Future<void> onNotificationAction(ReceivedAction receivedAction) async {
     print('Error fetching event details: $e');
     return;
   }
-  // Use the same message for all channels
   final eventTitle = receivedAction.title ?? '';
   switch (receivedAction.buttonKeyPressed) {
     case 'ON_TIME':
@@ -235,14 +230,14 @@ Future<void> onNotificationAction(ReceivedAction receivedAction) async {
     case 'RUNNING_LATE':
       print('User selected "Running Late" for event: $eventTitle');
       final msg = await getEventActionMessage(eventTitle, 'RUNNING_LATE');
-      await sendEmail(msg, attendeesList);
       await sendSms(msg, members);
+      await sendEmail(msg, attendeesList);
       break;
     case 'POSTPONE':
       print('User selected "Postpone" for event: $eventTitle');
       final msg = await getEventActionMessage(eventTitle, 'POSTPONE');
-      await sendEmail(msg, attendeesList);
       await sendSms(msg, members);
+      await sendEmail(msg, attendeesList);
       break;
     default:
       print(
@@ -251,7 +246,7 @@ Future<void> onNotificationAction(ReceivedAction receivedAction) async {
 }
 
 class NotificationService {
-  static int _defaultNotificationTime = 10; // Default to 10 minutes
+  static int _defaultNotificationTime = 10;
 
   static void updateDefaultNotificationTime(int minutes) {
     _defaultNotificationTime = minutes;
@@ -262,7 +257,6 @@ class NotificationService {
     final notificationTime = eventTime.subtract(
       Duration(minutes: _defaultNotificationTime),
     );
-    // Schedule the notification
     await AwesomeNotifications().createNotification(
       content: NotificationContent(
         id: UniqueKey().hashCode,

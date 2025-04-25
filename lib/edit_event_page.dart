@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'main.dart';
-import 'models.dart' as myModels; // use alias for Appointment type
+// Import models with alias to avoid naming conflicts
+import 'models.dart' as myModels;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -8,7 +8,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'auth/permission/contact_permission.dart';
 
+// Google Sign-In instance with required scopes
 final GoogleSignIn _googleSignIn = GoogleSignIn(
   scopes: [
     'email',
@@ -17,10 +19,11 @@ final GoogleSignIn _googleSignIn = GoogleSignIn(
   ],
 );
 
+// EditEventPage allows editing and deleting an existing event
 class EditEventPage extends StatefulWidget {
-  final myModels.Appointment appointment; // updated type with alias
-  final String eventId;
-  final List<String> members;
+  final myModels.Appointment appointment; // Appointment to edit
+  final String eventId; // Unique event ID
+  final List<String> members; // List of event members
 
   const EditEventPage({
     super.key,
@@ -44,15 +47,18 @@ class _EditEventPageState extends State<EditEventPage> {
   @override
   void initState() {
     super.initState();
+    // Initialize controllers and state from the provided appointment
     _titleController = TextEditingController(text: widget.appointment.subject);
     _locationController = TextEditingController();
     _descriptionController = TextEditingController();
     _members = List<String>.from(widget.members);
     _startTime = widget.appointment.startTime;
     _endTime = widget.appointment.endTime;
-    _fetchGoogleCalendarDuration(); // fetch default duration from Google Calendar API
+    // Fetch the latest event duration from Google Calendar
+    _fetchGoogleCalendarDuration();
   }
 
+  // Fetch event start and end time from Google Calendar API
   Future<void> _fetchGoogleCalendarDuration() async {
     GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
     googleUser ??= await _googleSignIn.signIn();
@@ -77,6 +83,7 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
+  // Update event details in Google Calendar
   Future<void> _updateGoogleCalendarEvent() async {
     GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
     googleUser ??= await _googleSignIn.signIn();
@@ -97,7 +104,6 @@ class _EditEventPageState extends State<EditEventPage> {
     final url =
         'https://www.googleapis.com/calendar/v3/calendars/primary/events/${widget.eventId}';
     final response = await http.patch(
-      // changed from put to patch
       Uri.parse(url),
       headers: {
         'Content-Type': 'application/json',
@@ -111,6 +117,7 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
+  // Save event changes to both Google Calendar and Firestore
   Future<void> _saveEvent() async {
     if (_titleController.text.isEmpty ||
         _startTime == null ||
@@ -148,11 +155,11 @@ class _EditEventPageState extends State<EditEventPage> {
           .doc(widget.eventId)
           .set(eventData, SetOptions(merge: true));
     }
-    // Navigate to homescreen and refresh
+    // After saving, return to the home screen
     Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
 
-  // New function to delete event from Google Calendar API
+  // Delete event from Google Calendar API
   Future<void> _deleteGoogleCalendarEvent() async {
     GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently();
     googleUser ??= await _googleSignIn.signIn();
@@ -172,9 +179,8 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
-  // Updated _deleteEvent function to delete from both Google Calendar and Firebase
+  // Delete event from both Google Calendar and Firestore
   Future<void> _deleteEvent() async {
-    // Delete event from Google Calendar API
     try {
       await _deleteGoogleCalendarEvent();
     } catch (e) {
@@ -182,7 +188,6 @@ class _EditEventPageState extends State<EditEventPage> {
           content: Text("Failed to delete event from Google Calendar: $e")));
       return;
     }
-    // Delete from Firebase Firestore (if exists)
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser != null && currentUser.email != null) {
       await FirebaseFirestore.instance
@@ -192,13 +197,14 @@ class _EditEventPageState extends State<EditEventPage> {
           .doc(widget.eventId)
           .delete();
     }
-    // Navigate to homescreen and refresh
+    // After deleting, return to the home screen
     Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
 
+  // Pick a contact from the device and add to members
   Future<void> _pickContact() async {
-    final permissionStatus = await Permission.contacts.request();
-    if (!permissionStatus.isGranted) return;
+    final permissionGranted = await ContactPermission.request();
+    if (!permissionGranted) return;
 
     try {
       final contact = await FlutterContacts.openExternalPick();
@@ -220,6 +226,7 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
+  // Pick a new start time for the event
   Future<void> _pickTime() async {
     final current = _startTime ?? DateTime.now();
     final currentTime = TimeOfDay.fromDateTime(current);
@@ -239,6 +246,7 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
+  // Pick a new duration for the event
   Future<void> _pickDuration() async {
     int selectedHours = 0;
     int selectedMinutes = 0;
@@ -258,6 +266,7 @@ class _EditEventPageState extends State<EditEventPage> {
                 height: 200,
                 child: Row(
                   children: [
+                    // Hours picker
                     Expanded(
                       child: Column(
                         children: [
@@ -281,6 +290,7 @@ class _EditEventPageState extends State<EditEventPage> {
                         ],
                       ),
                     ),
+                    // Minutes picker
                     Expanded(
                       child: Column(
                         children: [
@@ -331,6 +341,7 @@ class _EditEventPageState extends State<EditEventPage> {
     }
   }
 
+  // Pick a new start date for the event
   Future<void> _pickStartDate() async {
     if (_startTime == null) return;
     final current = _startTime!;
@@ -356,6 +367,7 @@ class _EditEventPageState extends State<EditEventPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Main UI for editing the event
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Event'),
@@ -382,6 +394,7 @@ class _EditEventPageState extends State<EditEventPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Event title input
                   TextField(
                     controller: _titleController,
                     decoration: const InputDecoration(
@@ -392,6 +405,7 @@ class _EditEventPageState extends State<EditEventPage> {
                     style: const TextStyle(color: Colors.black),
                   ),
                   const SizedBox(height: 20),
+                  // Location input
                   TextField(
                     controller: _locationController,
                     decoration: const InputDecoration(
@@ -402,6 +416,7 @@ class _EditEventPageState extends State<EditEventPage> {
                     style: const TextStyle(color: Colors.black),
                   ),
                   const SizedBox(height: 20),
+                  // Description input
                   TextField(
                     controller: _descriptionController,
                     decoration: const InputDecoration(
@@ -413,6 +428,7 @@ class _EditEventPageState extends State<EditEventPage> {
                     maxLines: 3,
                   ),
                   const SizedBox(height: 20),
+                  // Event timing section
                   const Text(
                     'Event Timing',
                     style: TextStyle(
@@ -423,7 +439,7 @@ class _EditEventPageState extends State<EditEventPage> {
                   ),
                   const Divider(color: Colors.black54, thickness: 1),
                   const SizedBox(height: 10),
-                  // Replaced separate rows with a single row for all event timing options.
+                  // Row for picking date, time, and duration
                   Row(
                     children: [
                       Expanded(
@@ -482,6 +498,7 @@ class _EditEventPageState extends State<EditEventPage> {
                     ],
                   ),
                   const SizedBox(height: 20),
+                  // Members section
                   const Text(
                     'Members',
                     style: TextStyle(
@@ -509,6 +526,7 @@ class _EditEventPageState extends State<EditEventPage> {
                     ],
                   ),
                   const SizedBox(height: 10),
+                  // List of current members
                   ..._members.map((member) => ListTile(
                         title: Text(member,
                             style: const TextStyle(color: Colors.black)),
@@ -519,6 +537,7 @@ class _EditEventPageState extends State<EditEventPage> {
                         ),
                       )),
                   const SizedBox(height: 20),
+                  // Action buttons: Save, Cancel, Delete
                   Row(
                     children: [
                       Expanded(
@@ -536,7 +555,7 @@ class _EditEventPageState extends State<EditEventPage> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
-                          // Updated cancel button: navigate to homescreen and refresh
+                          // Cancel returns to home screen
                           onPressed: () => Navigator.pushNamedAndRemoveUntil(
                               context, '/', (route) => false),
                           style: ElevatedButton.styleFrom(

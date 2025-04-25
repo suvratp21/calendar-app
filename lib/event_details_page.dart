@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'edit_event_page.dart'; // Import the edit event page
-// Import the Appointment class
-import 'models.dart' as myModels; // use alias to avoid conflict
+import 'edit_event_page.dart';
+import 'models.dart' as myModels;
 
 class EventDetailsPage extends StatefulWidget {
-  final myModels.Appointment appointment; // updated type with alias
-  final String eventId; // Unique event ID for Firebase
-  final List<String>? attendees; // new field
+  final myModels.Appointment appointment;
+  final String eventId;
+  final List<String>? attendees;
 
   const EventDetailsPage({
     super.key,
     required this.appointment,
     required this.eventId,
-    this.attendees, // new parameter
+    this.attendees,
   });
 
   @override
@@ -94,18 +93,17 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(16.0), // increased overall padding
+          padding: const EdgeInsets.all(16.0),
           child: Card(
             elevation: 10,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15.0)),
             color: Colors.white,
             child: Padding(
-              padding: const EdgeInsets.all(20.0), // generous inner padding
+              padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Event Title Section
                   ListTile(
                     leading:
                         const Icon(Icons.event, color: Colors.black, size: 32),
@@ -119,7 +117,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Timing Section using ListTiles
                   ListTile(
                     leading: const Icon(Icons.access_time, color: Colors.black),
                     title: const Text(
@@ -149,7 +146,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   const SizedBox(height: 20),
                   const Divider(color: Colors.black54, thickness: 1),
                   const SizedBox(height: 10),
-                  // Members Section
                   const Padding(
                     padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
                     child: Text(
@@ -188,7 +184,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   const SizedBox(height: 20),
                   const Divider(color: Colors.black54, thickness: 1),
                   const SizedBox(height: 10),
-                  // Attendees Section
                   const Padding(
                     padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
                     child: Text(
@@ -225,7 +220,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   const SizedBox(height: 20),
                   const Divider(color: Colors.black54, thickness: 1),
                   const SizedBox(height: 10),
-                  // Additional Information Section
                   const Padding(
                     padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
                     child: Text(

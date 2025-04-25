@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Add this import
+import 'package:shared_preferences/shared_preferences.dart';
 
+// SettingsPage allows users to configure notification time and default messages
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -8,30 +9,33 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
+// NotificationService for updating notification time (used for demonstration/logging)
 class NotificationService {
   static void updateDefaultNotificationTime(int minutes) {
-    // Implement the update logic here.
     debugPrint('Notification time updated to $minutes minutes');
   }
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  int _notificationMinutes = 10; // default value
+  int _notificationMinutes = 10; // Default notification time in minutes
 
-  // Add controllers and variables for default messages
+  // Controllers for the default message text fields
   final TextEditingController _runningLateController = TextEditingController();
   final TextEditingController _postponeController = TextEditingController();
+
+  // Default message templates
   String _defaultRunningLate = 'Regarding "{event}": I will be late.';
   String _defaultPostpone = 'Regarding "{event}": The event is postponed.';
 
   @override
   void initState() {
     super.initState();
-    _loadNotificationTime(); // Load saved notification time on initialization
-    _loadDefaultMessages(); // Load saved default messages
+    // Load saved settings when the page is initialized
+    _loadNotificationTime();
+    _loadDefaultMessages();
   }
 
-  // Load default messages from SharedPreferences
+  // Load default messages from persistent storage
   Future<void> _loadDefaultMessages() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -44,7 +48,7 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
-  // Save default messages to SharedPreferences
+  // Save default messages to persistent storage
   Future<void> _saveDefaultMessages() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('defaultRunningLate', _runningLateController.text);
@@ -55,6 +59,7 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  // Load notification time from persistent storage
   Future<void> _loadNotificationTime() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -62,19 +67,22 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  // Save notification time to persistent storage
   Future<void> _saveNotificationTime(int minutes) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('notificationMinutes', minutes);
   }
 
+  // Update notification time and persist the change
   void _updateNotificationTime(int minutes) {
     setState(() {
       _notificationMinutes = minutes;
     });
-    _saveNotificationTime(minutes); // Save the updated notification time
+    _saveNotificationTime(minutes);
     NotificationService.updateDefaultNotificationTime(minutes);
   }
 
+  // Display label for notification time (e.g., "10 minutes" or "1 hour 15 minutes")
   String get notificationTimeLabel {
     if (_notificationMinutes < 60) {
       return "${_notificationMinutes} minutes";
@@ -88,6 +96,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  // Show a bottom sheet to pick notification time (standard or custom)
   Future<void> _showNotificationTimePicker(BuildContext context) async {
     List<int> standardTimes = [5, 10, 15, 30];
     await showModalBottomSheet(
@@ -99,13 +108,13 @@ class _SettingsPageState extends State<SettingsPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
-        // Only show standard times and "Custom" (never show the current custom time as a disabled item)
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.only(bottom: 24, top: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Standard time options
                 ...standardTimes.map((min) => ListTile(
                       title: Text("$min minutes"),
                       onTap: () {
@@ -113,6 +122,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         _updateNotificationTime(min);
                       },
                     )),
+                // Custom time option
                 ListTile(
                   title: const Text(
                     "Custom",
@@ -128,6 +138,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         return AlertDialog(
                           content: Row(
                             children: [
+                              // Input for hours
                               Expanded(
                                 child: TextField(
                                   decoration: const InputDecoration(
@@ -141,6 +152,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                               const SizedBox(width: 10),
+                              // Input for minutes
                               Expanded(
                                 child: TextField(
                                   decoration: const InputDecoration(
@@ -189,10 +201,12 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // Helper to check if a time is a standard option
   bool _isStandardTime(int min) => [5, 10, 15, 30].contains(min);
 
   @override
   Widget build(BuildContext context) {
+    // Main UI for settings page
     return Scaffold(
       appBar: AppBar(
         title: const Text("Settings"),
@@ -203,6 +217,7 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           children: [
             const SizedBox(height: 20),
+            // Notification time setting
             ListTile(
               title: Row(
                 children: [
@@ -229,6 +244,7 @@ class _SettingsPageState extends State<SettingsPage> {
               trailing: const Icon(Icons.arrow_drop_down),
             ),
             const Divider(height: 32),
+            // Default messages section
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
@@ -236,6 +252,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 12),
+                  // Running late message input
                   TextField(
                     controller: _runningLateController,
                     decoration: const InputDecoration(
@@ -247,6 +264,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     textInputAction: TextInputAction.newline,
                   ),
                   const SizedBox(height: 12),
+                  // Postpone message input
                   TextField(
                     controller: _postponeController,
                     decoration: const InputDecoration(
@@ -259,11 +277,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     textInputAction: TextInputAction.newline,
                   ),
                   const SizedBox(height: 12),
-                  // Optionally, you can remove the manual save button:
-                  // ElevatedButton(
-                  //   onPressed: _saveDefaultMessages,
-                  //   child: const Text('Save Messages'),
-                  // ),
                 ],
               ),
             ),
@@ -275,6 +288,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    // Dispose controllers to free resources
     _runningLateController.dispose();
     _postponeController.dispose();
     super.dispose();

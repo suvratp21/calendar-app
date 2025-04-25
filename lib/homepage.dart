@@ -5,13 +5,15 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
-import 'add_name_page.dart';
 import 'add_event_page.dart';
 import 'event_details_page.dart';
-import 'settings_page.dart'; // new import
+import 'settings_page.dart';
 import 'models.dart' as myModels;
 import 'calendar_service.dart';
 import 'notification_service.dart';
+import 'auth/auth_service.dart';
+import 'auth/permission/notification_permission.dart' as localNotificationPermission;
+import 'auth/permission/contact_permission.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -25,49 +27,22 @@ class _AuthScreenState extends State<AuthScreen> {
   DateTime _selectedDate = DateTime.now();
   String? _accessToken;
   myModels.AppointmentDataSource? _calendarDataSource;
-  final bool _isUpdatingCalendar = false; // added flag
-  final CalendarController _calendarController =
-      CalendarController(); // new controller
+  final bool _isUpdatingCalendar = false;
+  final CalendarController _calendarController = CalendarController();
+  late final AuthService _authService;
 
   @override
   void initState() {
     super.initState();
+    _authService = AuthService(GoogleSignIn(
+      scopes: ['email', 'https://www.googleapis.com/auth/calendar.readonly'],
+    ));
     _attemptSilentSignIn();
-    _requestNotificationPermissions();
-  }
-
-  Future<void> _requestNotificationPermissions() async {
-    bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
-    if (!isAllowed) {
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Allow Notifications'),
-          content: const Text(
-              'This app needs permission to send you notifications.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Deny'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await AwesomeNotifications()
-                    .requestPermissionToSendNotifications();
-              },
-              child: const Text('Allow'),
-            ),
-          ],
-        ),
-      );
-    }
+    localNotificationPermission.NotificationPermission.request(context);
   }
 
   Future<void> _attemptSilentSignIn() async {
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser = _authService.currentUser;
     if (currentUser != null) {
       final googleUser = await GoogleSignIn(scopes: [
         'email',
@@ -85,46 +60,30 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
-    PermissionStatus contactStatus;
-    do {
-      contactStatus = await Permission.contacts.request();
-    } while (contactStatus.isDenied);
-
-    if (!contactStatus.isGranted) {
+    bool contactGranted = await ContactPermission.request();
+    if (!contactGranted) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Contact permission not granted.')));
       return;
     }
-
-    final GoogleSignInAccount? googleUser = await GoogleSignIn(scopes: [
+    final signedInUser = await _authService.signInWithGoogle();
+    if (signedInUser == null) return;
+    final googleUser = await GoogleSignIn(scopes: [
       'email',
       'https://www.googleapis.com/auth/calendar.readonly'
-    ]).signIn();
-    if (googleUser == null) return;
-    final googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-    try {
-      UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
-      setState(() {
-        user = userCredential.user;
-        _accessToken = googleAuth.accessToken;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Google sign in successful")));
-      _fetchEvents();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Google sign in failed: ${e.toString()}")));
-    }
+    ]).signInSilently();
+    final googleAuth = await googleUser?.authentication;
+    setState(() {
+      user = signedInUser;
+      _accessToken = googleAuth?.accessToken;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Google sign in successful")));
+    _fetchEvents();
   }
 
   Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    await GoogleSignIn().signOut();
+    await _authService.signOut();
     setState(() {
       user = null;
       _accessToken = null;
@@ -137,7 +96,6 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_accessToken != null) {
       fetchCalendarEvents(_accessToken!, _selectedDate).then((appointments) {
         setState(() {
-          // appointments now include attendees along with other details
           _calendarDataSource = myModels.AppointmentDataSource(appointments);
         });
       });
@@ -173,8 +131,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     setState(() {
                       _selectedDate = selectedDate;
                     });
-                    _calendarController.displayDate =
-                        selectedDate; // update calendar display
+                    _calendarController.displayDate = selectedDate;
                     _fetchEvents();
                   }
                 });
@@ -198,8 +155,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       Text('Add Event', style: TextStyle(color: Colors.black))),
               PopupMenuItem(
                   value: 'go_to',
-                  child: Text('Go to',
-                      style: TextStyle(color: Colors.black))), // new item
+                  child: Text('Go to', style: TextStyle(color: Colors.black))),
               PopupMenuItem(
                   value: 'settings',
                   child:
@@ -231,9 +187,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   children: [
                     Expanded(
                       child: SfCalendar(
-                        controller:
-                            _calendarController, // pass updated controller here
-                        initialDisplayDate: _selectedDate, // new line added
+                        controller: _calendarController,
+                        initialDisplayDate: _selectedDate,
                         view: CalendarView.day,
                         dataSource: _calendarDataSource,
                         headerStyle: const CalendarHeaderStyle(
@@ -270,8 +225,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 builder: (context) => EventDetailsPage(
                                   appointment: appointment,
                                   eventId: appointment.eventId,
-                                  attendees:
-                                      appointment.attendees, // new parameter
+                                  attendees: appointment.attendees,
                                 ),
                               ),
                             ).then((updatedAppointment) {
@@ -300,7 +254,7 @@ class _AuthScreenState extends State<AuthScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
-            heroTag: "addEventFab", // unique hero tag for Add Event
+            heroTag: "addEventFab",
             onPressed: () {
               Navigator.push(
                 context,
@@ -309,9 +263,9 @@ class _AuthScreenState extends State<AuthScreen> {
             },
             child: const Icon(Icons.add),
           ),
-          const SizedBox(height: 16), // Spacing between FABs
+          const SizedBox(height: 16),
           FloatingActionButton(
-            heroTag: "notifyFab", // unique hero tag for Notification
+            heroTag: "notifyFab",
             onPressed: () {
               AwesomeNotifications().createNotification(
                 content: NotificationContent(

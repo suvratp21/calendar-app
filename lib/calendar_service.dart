@@ -6,6 +6,7 @@ import 'notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+// Fetches calendar events for a specific date using Google Calendar API
 Future<List<Appointment>> fetchCalendarEvents(
     String accessToken, DateTime date) async {
   DateTime startDate = DateTime(date.year, date.month, date.day, 0, 0, 0);
@@ -22,15 +23,16 @@ Future<List<Appointment>> fetchCalendarEvents(
       List<Appointment> appointments = [];
       for (var event in events) {
         try {
+          // Parse event start and end times
           String? startStr =
               event['start']['dateTime'] ?? event['start']['date'];
           String? endStr = event['end']?['dateTime'] ?? event['end']?['date'];
           List<String>? attendees;
+          // Extract attendees, excluding the current user's email
           if (event["attendees"] != null) {
             attendees = (event["attendees"] as List)
                 .map((att) => att["email"].toString())
                 .toList();
-            // Remove own email from attendees list.
             String? ownEmail = FirebaseAuth.instance.currentUser?.email;
             if (ownEmail != null) {
               attendees =
@@ -52,6 +54,7 @@ Future<List<Appointment>> fetchCalendarEvents(
               attendees: attendees,
             );
             appointments.add(appt);
+            // Schedule a notification for this appointment
             await scheduleNotification(appt);
             print(
                 'Event: ${event['summary']}, Start: $startTime, End: $endTime');
@@ -60,7 +63,7 @@ Future<List<Appointment>> fetchCalendarEvents(
           print('Error parsing event: $e');
         }
       }
-      // Filter appointments to only include those on the selected day.
+      // Only include appointments that match the selected day
       appointments = appointments.where((a) {
         DateTime normalized(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
         return normalized(a.startTime) == normalized(date);
@@ -79,6 +82,7 @@ Future<List<Appointment>> fetchCalendarEvents(
   }
 }
 
+// Updates an existing Google Calendar event with new details
 Future<void> updateGoogleCalendarEvent(
     String accessToken, Appointment appointment) async {
   if (accessToken.isEmpty || appointment.eventId.isEmpty) return;
